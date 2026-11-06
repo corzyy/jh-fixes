@@ -1,20 +1,11 @@
 # jh-fixes
 
-A GNOME Shell extension that bundles a set of small personal tweaks to
-GNOME Shell 51: the top bar, Quick Settings, the dash, the Overview, windows,
-Alt+Tab and a darker shell theme (Umbra), all in one place with a single
-preferences window.
-
-Every option starts at GNOME's own behaviour (except the dash icon cap,
-48 px, and the Quick Settings button that opens these preferences), so
-nothing changes until you change it.
+A GNOME Shell 51 extension with small personal tweaks to the top bar, Quick Settings, dash, Overview, windows, Alt+Tab and shell theme.
 
 ## Install
 
-**Requirements:** GNOME Shell 51, `git`, `make` and `glib-compile-schemas`
-(part of `glib2`). Optional: `ddcutil` for external monitor brightness.
+**Requirements:** GNOME Shell 51, `git` and `make`.
 
-    sudo dnf install git make ddcutil    # Fedora; ddcutil is optional
     git clone git@github.com:corzyy/jh-fixes.git   # private repo: needs access
     cd jh-fixes
     make install
