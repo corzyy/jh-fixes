@@ -1,0 +1,58 @@
+/* ---- Quick settings ---- */
+.quick-settings {
+  padding: 16px;
+  border-radius: 28px; }
+
+.quick-toggle-has-menu .quick-toggle-separator {
+  background-color: rgba(255, 255, 255, 0.08); }
+
+/* ================= Quick Settings ================= */
+
+/* Toggles: soft translucent pills, accent when on */
+.quick-toggle, .quick-toggle-has-menu .quick-toggle-menu-button {
+  color: #f4f4f5;
+  background-color: rgba(255, 255, 255, 0.06); }
+  .quick-toggle:hover, .quick-toggle-has-menu .quick-toggle-menu-button:hover {
+    background-color: rgba(255, 255, 255, 0.10); }
+  .quick-toggle:active, .quick-toggle-has-menu .quick-toggle-menu-button:active {
+    background-color: rgba(255, 255, 255, 0.14); }
+  .quick-toggle:focus, .quick-toggle-has-menu .quick-toggle-menu-button:focus {
+    background-color: rgba(255, 255, 255, 0.08); }
+
+.quick-toggle:checked, .quick-toggle-has-menu .quick-toggle-menu-button:checked {
+  color: -st-accent-fg-color;
+  background-color: -st-accent-color; }
+  .quick-toggle:checked:hover, .quick-toggle-has-menu .quick-toggle-menu-button:checked:hover {
+    background-color: st-lighten(-st-accent-color, 5%); }
+  .quick-toggle:checked:active, .quick-toggle-has-menu .quick-toggle-menu-button:checked:active {
+    background-color: st-lighten(-st-accent-color, 10%); }
+  .quick-toggle:checked:focus, .quick-toggle-has-menu .quick-toggle-menu-button:checked:focus {
+    background-color: -st-accent-color; }
+
+.quick-toggle .quick-toggle-subtitle {
+  color: rgba(255, 255, 255, 0.6); }
+.quick-toggle:checked .quick-toggle-subtitle {
+  color: st-transparentize(-st-accent-fg-color, 0.25); }
+
+.quick-toggle-has-menu:checked .quick-toggle-separator {
+  background-color: st-transparentize(-st-accent-fg-color, 0.8); }
+
+/* Top row buttons (screenshot, settings, lock, power) */
+.quick-settings .icon-button {
+  background-color: rgba(255, 255, 255, 0.06); }
+  .quick-settings .icon-button:hover {
+    background-color: rgba(255, 255, 255, 0.10); }
+  .quick-settings .icon-button:active {
+    background-color: rgba(255, 255, 255, 0.14); }
+
+/* Expanded submenu (Wi-Fi list, audio devices, …) */
+.quick-toggle-menu {
+  border-radius: 20px;
+  background-color: rgba(255, 255, 255, 0.04); }
+  .quick-toggle-menu:hover {
+    background-color: rgba(255, 255, 255, 0.04); }
+  .quick-toggle-menu .header .icon {
+    background-color: rgba(255, 255, 255, 0.08); }
+  .quick-toggle-menu .popup-menu-item {
+    border-radius: 10px; }
+

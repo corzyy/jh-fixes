@@ -1,0 +1,67 @@
+/* ---- Dash / dock: compact pill with a hairline GTK-style outline ----
+   Also styles Dash to Dock when its "Use built-in theme" is off. */
+#dash {
+  padding-left: 4px;
+  padding-right: 4px; }
+
+#dash .dash-background {
+  /* the colour of a Quick Settings tile that is off; filled in by build.js */
+  background-color: @dash-bg@;
+  /* libadwaita dark window outline + soft drop shadow */
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  border-radius: 18px;
+  padding: 5px; }
+
+#dash .dash-separator,
+#dash .dash-background {
+  margin-bottom: 8px; }
+
+#dash .dash-separator {
+  margin-left: 3px;
+  margin-right: 3px;
+  background-color: rgba(255, 255, 255, 0.08); }
+
+/* tighter tiles -> smaller footprint per icon */
+#dash .dash-item-container .show-apps,
+#dash .dash-item-container .overview-tile,
+#dash .dash-item-container .grid-search-result {
+  margin: 0 1px;
+  padding-bottom: 6px; }
+
+#dash .dash-item-container .show-apps .overview-icon,
+#dash .dash-item-container .overview-tile .overview-icon,
+#dash .dash-item-container .grid-search-result .overview-icon {
+  padding: 4px;
+  border-radius: 12px;
+  background-color: transparent; }
+#dash .dash-item-container .show-apps:hover .overview-icon,
+#dash .dash-item-container .overview-tile:hover .overview-icon,
+#dash .dash-item-container .grid-search-result:hover .overview-icon {
+  background-color: rgba(255, 255, 255, 0.07); }
+#dash .dash-item-container .show-apps:active .overview-icon,
+#dash .dash-item-container .overview-tile:active .overview-icon,
+#dash .dash-item-container .grid-search-result:active .overview-icon,
+#dash .dash-item-container .show-apps:checked .overview-icon {
+  background-color: rgba(255, 255, 255, 0.11); }
+
+#dash .dash-item-container .app-grid-running-dot {
+  offset-y: -6px; }
+
+#dash .dash-item-container .placeholder,
+#dash .dash-item-container .empty-dash-drop-target {
+  height: 28px; }
+
+.dash-label {
+  -y-offset: 6px; }
+
+/* Dash to Dock: keep it floating and transparent around the pill */
+#dashtodockContainer,
+#dashtodockContainer #dash {
+  background-color: transparent; }
+#dashtodockContainer.bottom #dash .dash-background,
+#dashtodockContainer.bottom #dash .dash-separator {
+  margin-bottom: 6px; }
+#dashtodockContainer.left #dash .dash-background { margin-left: 6px; }
+#dashtodockContainer.right #dash .dash-background { margin-right: 6px; }
+

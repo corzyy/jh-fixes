@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <!-- Defaults match stock GNOME (except the dash icon cap), so nothing changes until a switch is flipped.
+       Grouped like the preferences pages. Key names are kept as they are, so saved settings stay. -->
+  <schema id="org.gnome.shell.extensions.jh-fixes" path="/org/gnome/shell/extensions/jh-fixes/">
+
+    <!-- Top Bar (features/topBar/, prefs/pages/topBar.js) -->
+    <key name="panel-activities-button" type="b">
+      <default>true</default>
+      <summary>Show the Activities button</summary>
+      <description>The workspace indicator on the left of the top bar.</description>
+    </key>
+    <key name="clock-style" type="s">
+      <choices>
+        <choice value="default"/>
+        <choice value="time"/>
+      </choices>
+      <default>'default'</default>
+      <summary>What the top bar clock shows</summary>
+      <description>"default" is GNOME's own clock, which follows the Date &amp; Time settings; "time" leaves out the date and weekday.</description>
+    </key>
+
+    <!-- Quick Settings (features/quickSettings/, prefs/pages/quickSettings.js) -->
+    <key name="hidden-quick-settings" type="as">
+      <default>[]</default>
+      <summary>Hidden Quick Settings items</summary>
+      <description>Ids of grid items and top row buttons left out of the Quick Settings menu, see src/lib/quickSettingsCatalog.js. Items of other extensions use "ext:" plus their class name.</description>
+    </key>
+    <key name="quick-settings-order" type="as">
+      <default>[]</default>
+      <summary>Order of the Quick Settings items</summary>
+      <description>Item ids in the order they are laid out, row by row. Empty keeps GNOME's order. Items not in the list go where GNOME would put them.</description>
+    </key>
+    <key name="quick-settings-widths" type="a{si}">
+      <default>{}</default>
+      <summary>Quick Settings item widths</summary>
+      <description>Item id mapped to the number of columns it spans; 0 means all columns. Items not listed keep GNOME's width (sliders and the top row span all columns).</description>
+    </key>
+    <key name="quick-settings-columns" type="i">
+      <range min="1" max="4"/>
+      <default>2</default>
+      <summary>Number of Quick Settings columns</summary>
+      <description>The menu gets wider with more columns.</description>
+    </key>
+    <key name="known-quick-settings-items" type="a{ss}">
+      <default>{}</default>
+      <summary>Other extensions' Quick Settings items seen so far</summary>
+      <description>Item id mapped to its name, in the order GNOME adds them. Filled in by the extension so the preferences can list them.</description>
+    </key>
+    <key name="known-quick-settings-icons" type="a{ss}">
+      <default>{}</default>
+      <summary>Icons of other extensions' Quick Settings items</summary>
+      <description>Item id mapped to an icon name, for the preview in the preferences.</description>
+    </key>
+    <key name="known-quick-settings-kinds" type="a{ss}">
+      <default>{}</default>
+      <summary>Shapes of other extensions' Quick Settings items</summary>
+      <description>Item id mapped to "slider", "row" (full width) or "tile", for the preview in the preferences.</description>
+    </key>
+    <key name="present-quick-settings-items" type="as">
+      <default>[]</default>
+      <summary>Quick Settings items GNOME shows right now</summary>
+      <description>Filled in by the extension for the preview in the preferences.</description>
+    </key>
+    <key name="quick-settings-prefs-button" type="b">
+      <default>true</default>
+      <summary>Show a jh-fixes Settings button in Quick Settings</summary>
+      <description>Next to GNOME's Settings button in the top row; opens these preferences.</description>
+    </key>
+    <key name="ddc-brightness" type="b">
+      <default>false</default>
+      <summary>Brightness slider for external monitors</summary>
+      <description>Adds a Quick Settings slider that sets the brightness of every DDC/CI monitor at once, using ddcutil.</description>
+    </key>
+    <key name="sound-app-volumes" type="b">
+      <default>false</default>
+      <summary>Application volume sliders in Quick Settings</summary>
+      <description>Show a volume slider for every app playing sound in the Quick Settings sound output menu.</description>
+    </key>
+    <key name="known-output-devices" type="a{ss}">
+      <default>{}</default>
+      <summary>Output devices seen so far</summary>
+      <description>Device key mapped to the name GNOME gives it. Filled in by the extension so the preferences can list devices that are not plugged in right now.</description>
+    </key>
+    <key name="output-device-names" type="a{ss}">
+      <default>{}</default>
+      <summary>Custom output device names</summary>
+      <description>Device key mapped to the name shown in Quick Settings.</description>
+    </key>
+    <key name="hidden-output-devices" type="as">
+      <default>[]</default>
+      <summary>Hidden output devices</summary>
+      <description>Device keys left out of the Quick Settings output menu. The active device is always shown.</description>
+    </key>
+    <key name="known-input-devices" type="a{ss}">
+      <default>{}</default>
+      <summary>Input devices seen so far</summary>
+      <description>Device key mapped to the name GNOME gives it. Filled in by the extension so the preferences can list devices that are not plugged in right now.</description>
+    </key>
+    <key name="input-device-names" type="a{ss}">
+      <default>{}</default>
+      <summary>Custom input device names</summary>
+      <description>Device key mapped to the name shown in Quick Settings.</description>
+    </key>
+    <key name="hidden-input-devices" type="as">
+      <default>[]</default>
+      <summary>Hidden input devices</summary>
+      <description>Device keys left out of the Quick Settings input menu. The active device is always shown.</description>
+    </key>
+
+    <!-- Dash (features/dock/, prefs/pages/dock.js) -->
+    <key name="dash-visible" type="b">
+      <default>true</default>
+      <summary>Show the dash</summary>
+    </key>
+    <key name="dash-max-icon-size" type="i">
+      <range min="16" max="64"/>
+      <default>48</default>
+      <summary>Largest dash icon size</summary>
+      <description>Upper limit for the Overview dash icons, in pixels. GNOME uses the steps 16, 22, 24, 32, 48 and 64, and still shrinks the icons if they do not fit.</description>
+    </key>
+    <key name="dash-show-apps-button" type="b">
+      <default>true</default>
+      <summary>Show the Show Apps button in the dash</summary>
+    </key>
+
+    <!-- Overview (features/overview/, prefs/pages/overview.js) -->
+    <key name="overview-window-titles" type="b">
+      <default>true</default>
+      <summary>Show window titles in the Overview</summary>
+      <description>The caption (window title, or app name) under a window when the pointer is on it.</description>
+    </key>
+    <key name="app-grid-columns" type="i">
+      <range min="0" max="12"/>
+      <default>0</default>
+      <summary>Columns per app grid page</summary>
+      <description>0 lets GNOME choose (or follows the rows and the page's shape).</description>
+    </key>
+    <key name="app-grid-rows" type="i">
+      <range min="0" max="8"/>
+      <default>0</default>
+      <summary>Rows per app grid page</summary>
+      <description>0 lets GNOME choose (or follows the columns and the page's shape).</description>
+    </key>
+
+    <!-- Windows (features/windows/, prefs/pages/windows.js) -->
+    <key name="window-corners" type="b">
+      <default>false</default>
+      <summary>Round the corners of windows</summary>
+      <description>Also gives them a matching shadow. Skips maximised and fullscreen windows and libadwaita apps, which are rounded already. The radius follows shell-theme-radius.</description>
+    </key>
+    <key name="show-desktop" type="b">
+      <default>false</default>
+      <summary>Show Desktop shortcut</summary>
+      <description>The shortcut in show-desktop-shortcut minimises every window on the workspace; pressing it again brings them back.</description>
+    </key>
+    <key name="show-desktop-shortcut" type="as">
+      <default><![CDATA[['<Super>d']]]></default>
+      <summary>Show Desktop shortcut keys</summary>
+      <description>Only used while show-desktop is on.</description>
+    </key>
+
+    <!-- Alt+Tab (features/altTab/, prefs/pages/altTab.js) -->
+    <key name="alt-tab-mode" type="s">
+      <choices>
+        <choice value="apps"/>
+        <choice value="windows"/>
+      </choices>
+      <default>'apps'</default>
+      <summary>What Alt+Tab switches between</summary>
+      <description>"apps" as in GNOME, or "windows": the switch-applications shortcut opens the window switcher.</description>
+    </key>
+    <key name="alt-tab-window-style" type="s">
+      <choices>
+        <choice value="gnome"/>
+        <choice value="thumbnails"/>
+        <choice value="icons"/>
+        <choice value="both"/>
+      </choices>
+      <default>'gnome'</default>
+      <summary>How the window switcher shows windows</summary>
+      <description>"gnome" follows org.gnome.shell.window-switcher app-icon-mode; "thumbnails", "icons" (app icons) or "both".</description>
+    </key>
+    <key name="alt-tab-popup-delay" type="i">
+      <range min="0" max="1000"/>
+      <default>150</default>
+      <summary>Alt+Tab popup delay, in milliseconds</summary>
+      <description>How long the switcher waits before it appears, so quick presses don't flash it. GNOME uses 150.</description>
+    </key>
+
+    <!-- Appearance (features/appearance/, prefs/pages/appearance.js). The top bar background keys are shown on the Top Bar page. -->
+    <key name="shell-theme" type="b">
+      <default>false</default>
+      <summary>Use the Umbra shell theme</summary>
+      <description>Built from GNOME's own dark stylesheet, replaces the User Themes extension.</description>
+    </key>
+    <key name="shell-theme-darkness" type="i">
+      <range min="0" max="100"/>
+      <default>100</default>
+      <summary>How dark the theme's greys are, in percent</summary>
+      <description>0 keeps GNOME's own dark greys, 100 uses Umbra's darker ones.</description>
+    </key>
+    <key name="shell-theme-disabled-styles" type="as">
+      <default>[]</default>
+      <summary>Umbra style parts that are switched off</summary>
+      <description>Ids from STYLE_PARTS in src/features/appearance/theme/build.js. Those in FIXED_PARTS (switches, quick-settings, calendar) are always on and ignored here.</description>
+    </key>
+    <key name="shell-theme-panel" type="s">
+      <choices>
+        <choice value="black"/>
+        <choice value="theme"/>
+        <choice value="transparent"/>
+        <choice value="dynamic"/>
+      </choices>
+      <default>'black'</default>
+      <summary>Top bar background</summary>
+      <description>"black" as in GNOME, "theme" uses the theme's background grey, "transparent" shows the wallpaper, "dynamic" is transparent until a window touches the bar and then shell-theme-panel-solid. The Overview and lock screen always have a transparent top bar.</description>
+    </key>
+    <key name="shell-theme-panel-solid" type="s">
+      <choices>
+        <choice value="theme"/>
+        <choice value="black"/>
+      </choices>
+      <default>'theme'</default>
+      <summary>Dynamic top bar background while a window touches it</summary>
+      <description>Only used while shell-theme-panel is "dynamic".</description>
+    </key>
+    <key name="shell-theme-panel-shadow" type="i">
+      <range min="0" max="100"/>
+      <default>50</default>
+      <summary>Text and icon shadow on a transparent top bar, in percent</summary>
+      <description>0 turns it off. Only used while the top bar is transparent ("transparent", or "dynamic" with no window touching it).</description>
+    </key>
+    <key name="shell-theme-radius" type="i">
+      <range min="0" max="40"/>
+      <default>20</default>
+      <summary>Corner radius of the shell, in pixels</summary>
+      <description>The popup menus' radius. Every other rounded corner scales with it: the Umbra theme's (Quick Settings, its submenus, the dash, the calendar and its cards) and, with window-corners on, the windows' (15 at the default 20).</description>
+    </key>
+    <key name="shell-theme-slider-height" type="i">
+      <range min="4" max="20"/>
+      <default>12</default>
+      <summary>Quick Settings slider thickness, in pixels</summary>
+    </key>
+    <key name="shell-theme-menu-shadow" type="i">
+      <range min="0" max="100"/>
+      <default>35</default>
+      <summary>Popup menu shadow strength, in percent</summary>
+    </key>
+    <key name="shell-theme-dash-style" type="s">
+      <choices>
+        <choice value="umbra"/>
+        <choice value="gnome"/>
+      </choices>
+      <default>'umbra'</default>
+      <summary>Dash style</summary>
+      <description>"umbra" is the compact pill with a thin outline, "gnome" keeps GNOME's own dash. Both have the colour of a Quick Settings tile that is off.</description>
+    </key>
+    <key name="animation-duration" type="i">
+      <range min="10" max="400"/>
+      <default>100</default>
+      <summary>Animation duration in percent</summary>
+      <description>How long shell animations take compared to normal. Lower is faster.</description>
+    </key>
+  </schema>
+</schemalist>

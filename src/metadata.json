@@ -1,0 +1,15 @@
+{
+  "uuid": "jh-fixes@local",
+  "name": "jh-fixes",
+  "description": "Personal GNOME Shell tweaks, sorted by part of the screen: top bar, Quick Settings (layout, monitor brightness, app volumes, sound devices), the dash, Overview and app grid, windows (rounded corners, Show Desktop, Alt+Tab) and appearance (the Umbra shell theme, animation speed).",
+  "shell-version": [
+    "51"
+  ],
+  "session-modes": [
+    "user",
+    "unlock-dialog"
+  ],
+  "settings-schema": "org.gnome.shell.extensions.jh-fixes",
+  "url": "",
+  "version-name": "0.6"
+}
