@@ -1,11 +1,37 @@
 # jh-fixes
 
-Small personal tweaks to GNOME Shell 51. Every option starts at GNOME's own
-behaviour (except the dash icon cap, 48 px, and the Quick Settings button
-that opens these preferences), so nothing changes until you change it.
+A GNOME Shell extension that bundles a set of small personal tweaks to
+GNOME Shell 51: the top bar, Quick Settings, the dash, the Overview, windows,
+Alt+Tab and a darker shell theme (Umbra), all in one place with a single
+preferences window.
 
-Preferences: `gnome-extensions prefs jh-fixes@local`, or the jh-fixes button
-in Quick Settings.
+Every option starts at GNOME's own behaviour (except the dash icon cap,
+48 px, and the Quick Settings button that opens these preferences), so
+nothing changes until you change it.
+
+## Install
+
+**Requirements:** GNOME Shell 51, `git`, `make` and `glib-compile-schemas`
+(part of `glib2`). Optional: `ddcutil` for external monitor brightness.
+
+    sudo dnf install git make ddcutil    # Fedora; ddcutil is optional
+    git clone git@github.com:corzyy/jh-fixes.git   # private repo: needs access
+    cd jh-fixes
+    make install
+
+The extension goes to `~/.local/share/gnome-shell/extensions/jh-fixes@local`.
+The first time, **log out and back in** so GNOME Shell picks it up, then:
+
+    gnome-extensions enable jh-fixes@local
+
+Open the preferences with `gnome-extensions prefs jh-fixes@local`, or the
+jh-fixes button in Quick Settings.
+
+**Update:** `git pull && make install`. The running extension is reloaded
+right away; no new login needed (except when `loader/` or `metadata.json`
+changed, see [Development](#development)).
+
+**Uninstall:** `make uninstall`.
 
 ## How it is organised
 
@@ -124,14 +150,10 @@ jh-fixes keeps running while the screen is locked, so the theme stays,
 Quick Settings keeps its arrangement, the jh-fixes Settings button is hidden
 there, and the Activities button stays hidden.
 
-## Install
+## Development
 
-    make install
-    gnome-extensions enable jh-fixes@local   # first time only
-
-The very first install with the loader needs one log out and back in. After
-that, `make install` reloads the running extension right away, including
-new settings keys; no new login needed.
+`make install` installs a new build and reloads the running extension in
+place, including new settings keys.
 
 How: the installed folder holds a small, stable loader (`loader/`) and the
 real code under `builds/<id>/`, a fresh path on every install. GJS caches
@@ -140,9 +162,9 @@ modules by path, so a fresh path means the new code is really loaded when
 itself and to `metadata.json` (read once at login) still need a new login.
 Details in `loader/common.js` and `tools/install.sh`.
 
-Preferences: `gnome-extensions prefs jh-fixes@local`.
+`make pack` builds a zip in `dist/` for `gnome-extensions install`.
 
-## Code layout
+### Code layout
 
     loader/                 stable entry point that loads the current build
     tools/install.sh        installs a new build and reloads the extension
@@ -164,7 +186,7 @@ Preferences: `gnome-extensions prefs jh-fixes@local`.
                             editor, sound device lists, theme rows
       schemas/              settings, grouped like the pages
 
-## Adding a fix
+### Adding a fix
 
 1. **Shell side**: put a class with `enable()`/`disable()` in the matching
    `src/features/<area>/` folder and add it to that folder's `index.js`.
