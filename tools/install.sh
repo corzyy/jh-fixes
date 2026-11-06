@@ -41,6 +41,13 @@ put "$SRC/schemas/org.gnome.shell.extensions.jh-fixes.gschema.xml" \
     "$DEST/schemas/org.gnome.shell.extensions.jh-fixes.gschema.xml"
 put "$SRC/schemas/gschemas.compiled" "$DEST/schemas/gschemas.compiled"
 
+# Where this build came from, for the update banner in the preferences
+# (src/prefs/update.js). Only for installs from a git clone.
+if commit=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null); then
+    printf '{"repo": "%s", "commit": "%s"}\n' "$ROOT" "$commit" > "$DEST/source.json.new"
+    mv -f "$DEST/source.json.new" "$DEST/source.json"
+fi
+
 echo "$BUILD" > "$DEST/current-build.new"
 mv -f "$DEST/current-build.new" "$DEST/current-build"
 
