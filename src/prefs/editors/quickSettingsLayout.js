@@ -1,14 +1,3 @@
-// The Quick Settings layout editor: a preview drawn like the real menu.
-// Drag items to move them, drag them into "Hidden" to hide them, click one
-// for its options (width, keyboard moves, the top row's buttons).
-//
-// Dragging reorders live: the dragged item stays in the grid as a dashed
-// placeholder that follows the pointer, and the others flow around it the
-// way the real menu will lay them out, so what you see when you let go is
-// what you get. Items move by changing their grid position, never by
-// being taken out of the grid, so the widget being dragged stays put.
-// Shell side: features/quickSettings/items.js.
-
 import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
@@ -18,21 +7,9 @@ import Gtk from 'gi://Gtk';
 import Pango from 'gi://Pango';
 
 import {
-    EXTERNAL_PREFIX, FULL_WIDTH, GRID_ITEMS, TOP_ROW_BUTTONS, arrange, rankOf, spanFor,
+    EXTERNAL_PREFIX, FULL_WIDTH, GRID_ITEMS, KEYS, TOP_ROW_BUTTONS, arrange, rankOf, spanFor,
 } from '../../lib/quickSettingsCatalog.js';
 import {addCss, bindNotInList, onChanged} from '../ui/build.js';
-
-export const KEYS = {
-    hidden: 'hidden-quick-settings',
-    order: 'quick-settings-order',
-    widths: 'quick-settings-widths',
-    columns: 'quick-settings-columns',
-    known: 'known-quick-settings-items',
-    knownIcons: 'known-quick-settings-icons',
-    knownKinds: 'known-quick-settings-kinds',
-    present: 'present-quick-settings-items',
-    prefsButton: 'quick-settings-prefs-button',
-};
 
 const KIND_LABELS = {
     row: 'Row',
@@ -47,17 +24,14 @@ const kindLabel = item => (item.external
 
 const FALLBACK_ICON = 'application-x-addon-symbolic';
 
-// Top row buttons in their order. The jh-fixes one has its own switch
-// instead of an entry in the hidden list.
 const JH_FIXES_BUTTON = 'button-jh-fixes';
+const JH_FIXES_TITLE = 'jh-fixes Settings';
 const TOP_ROW = [
     ...TOP_ROW_BUTTONS.slice(0, 3),
-    {id: JH_FIXES_BUTTON, title: 'jh-fixes Settings', icon: FALLBACK_ICON},
+    {id: JH_FIXES_BUTTON, title: JH_FIXES_TITLE, icon: FALLBACK_ICON},
     ...TOP_ROW_BUTTONS.slice(3),
 ].map(b => ({...b, kind: 'button'}));
-// Buttons GNOME packs to the right of the top row.
 const RIGHT_BUTTONS = new Set(['button-lock', 'button-power']);
-// Space between preview cells.
 const SPACING = 10;
 
 const CSS = `
@@ -116,20 +90,11 @@ const CSS = `
 .jh-chip:hover { background-color: alpha(@view_fg_color, 0.14); }
 `;
 
-
-/**
- * All grid items, built-in and other extensions' ones seen so far, in the
- * order the menu shows them.
- *
- * @param {Gio.Settings} settings - the extension's settings
- * @returns {object[]} {id, title, kind, icon, subtitle, stockFull}
- */
 function arrangedItems(settings) {
     const entries = new Map();
     for (const item of GRID_ITEMS)
         entries.set(item.id, {...item, stockFull: item.kind !== 'tile'});
 
-    // In the order GNOME added them (see _publishExternal in items.js).
     const known = settings.get_value(KEYS.known).deepUnpack();
     const icons = settings.get_value(KEYS.knownIcons).deepUnpack();
     const kinds = settings.get_value(KEYS.knownKinds).deepUnpack();
@@ -144,31 +109,18 @@ function arrangedItems(settings) {
         });
     }
 
-    // Array sort is stable, so equal ranks keep the order above.
     const stock = [...entries.keys()].sort((a, b) => rankOf(a) - rankOf(b));
     return arrange(stock, settings.get_strv(KEYS.order)).map(id => entries.get(id));
 }
 
-/**
- * The menu preview and the Hidden area, as two preference groups.
- *
- * @param {object} ctx - {settings}
- * @returns {Adw.PreferencesGroup[]}
- */
 export function quickSettingsLayout({settings}) {
     addCss('quick-settings-layout', CSS);
     const layout = new Layout(settings);
     return [layout.menuGroup, layout.hiddenGroup];
 }
 
-// What the layout editor changes, for the page's reset button.
 export const LAYOUT_KEYS = [KEYS.hidden, KEYS.order, KEYS.widths, KEYS.prefsButton];
 
-/**
- * Removes every child of a container widget.
- *
- * @param {Gtk.Widget} widget - a Gtk.Grid or Adw.WrapBox
- */
 function clear(widget) {
     for (let child = widget.get_first_child(); child;) {
         const next = child.get_next_sibling();
@@ -177,14 +129,6 @@ function clear(widget) {
     }
 }
 
-/**
- * Where each item goes, like GNOME's QuickSettingsLayout._getRows(): in
- * order, starting a new row whenever the next item does not fit.
- *
- * @param {number[]} spans - the items' widths in columns
- * @param {number} columns - columns of the menu
- * @returns {{column: number, row: number}[]}
- */
 function gridPositions(spans, columns) {
     let row = -1, column = 0;
     return spans.map(span => {
@@ -198,28 +142,28 @@ function gridPositions(spans, columns) {
     });
 }
 
-// Distance from the top or bottom of the page at which a drag scrolls it,
-// and the fastest it scrolls, in pixels per frame.
 const SCROLL_EDGE = 64;
 const SCROLL_MAX_STEP = 18;
 
 const icon = (name, params = {}) => new Gtk.Image({icon_name: name || FALLBACK_ICON, ...params});
 
-// The menu preview and the hidden items, rebuilt whenever the arrangement
-// changes.
 class Layout {
     constructor(settings) {
         this._settings = settings;
         this._rebuildId = 0;
         this._showAbsent = false;
-        // Item whose popover to open again after a rebuild, so changing the
-        // width or moving with the keyboard can go on.
         this._reopen = null;
-        // Menu cells in order: {cell, id, item, span}.
         this._cells = [];
-        // The drag in progress, see _startDrag().
         this._drag = null;
         this._scrollId = 0;
+        this._scrollStep = 0;
+        this._scrolled = null;
+        this._popover = null;
+        this._rebuildPending = false;
+        this._destroyed = false;
+        this._topRow = null;
+        this._hidden = new Set();
+        this._present = new Set();
 
         this._buildMenu();
         this._buildHidden();
@@ -265,9 +209,6 @@ class Layout {
         this._frame = new Gtk.Box({css_classes: ['jh-qs-menu']});
         this._frame.append(this._grid);
 
-        // One drop target for the whole menu. Top row buttons can only go
-        // back into the top row, so while one is dragged the row lights up;
-        // anything else moves through the grid (_dragOver).
         const target = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE);
         target.connect('motion', (_t, x, y) => {
             if (!this._drag)
@@ -316,10 +257,6 @@ class Layout {
         this.hiddenGroup.add(area);
     }
 
-    // Deferred: the change may come from a widget that is about to be
-    // replaced, from inside its own signal handler. While a popover is open
-    // (the top row's switches change settings from inside it), it waits
-    // until the popover closes, as the popover's cell would go away.
     _queueRebuild() {
         if (this._popover) {
             this._rebuildPending = true;
@@ -338,12 +275,11 @@ class Layout {
         const items = arrangedItems(this._settings);
         const columns = this._settings.get_int(KEYS.columns);
         const widths = this._settings.get_value(KEYS.widths).deepUnpack();
-        const hidden = new Set(this._settings.get_strv(KEYS.hidden));
-        const present = new Set(this._settings.get_strv(KEYS.present));
+        const hidden = this._hidden = new Set(this._settings.get_strv(KEYS.hidden));
+        const present = this._present = new Set(this._settings.get_strv(KEYS.present));
         const isPresent = id => !present.size || present.has(id);
         const byId = new Map();
 
-        // Menu.
         clear(this._grid);
         this._topRow = null;
         this._cells = [];
@@ -366,15 +302,12 @@ class Layout {
             }), 0, 0, 1, 1);
         }
 
-        // Hidden items. Unlike the menu, this lists the ones GNOME would not
-        // show right now too, dimmed.
         clear(this._chips);
         const hiddenItems = [
             ...items.filter(item => hidden.has(item.id)),
             ...TOP_ROW.filter(button => this._isButtonHidden(button.id)),
         ];
         for (const item of hiddenItems) {
-            // Of the top row buttons, only the battery can be missing.
             const there = item.kind === 'button' && item.id !== 'button-battery' ? true : isPresent(item.id);
             const chip = this._chip(item, there);
             this._chips.append(chip);
@@ -398,8 +331,6 @@ class Layout {
             }
         }
     }
-
-    // ---- Cells ----
 
     _menuCell(item, isPresentNow) {
         let cell;
@@ -456,11 +387,9 @@ class Layout {
         return cell;
     }
 
-    // GNOME's top row: battery on the left, then Screenshot and Settings
-    // (and the jh-fixes button), Lock and Power Off on the right.
     _topRowCell() {
         const cell = new Gtk.Box({spacing: 8, css_classes: ['jh-qs-toprow']});
-        const present = new Set(this._settings.get_strv(KEYS.present));
+        const present = this._present;
         let spacer = false;
         for (const button of TOP_ROW) {
             if (RIGHT_BUTTONS.has(button.id) && !spacer) {
@@ -469,7 +398,6 @@ class Layout {
             }
             if (this._isButtonHidden(button.id))
                 continue;
-            // Only on computers with a battery.
             const absent = button.id === 'button-battery' && present.size && !present.has(button.id);
             if (absent && !this._showAbsent)
                 continue;
@@ -481,7 +409,6 @@ class Layout {
             if (absent)
                 b.add_css_class('jh-absent');
             b.append(icon(button.icon, {hexpand: true, halign: Gtk.Align.CENTER}));
-            // A click goes on to the row and opens its popover.
             this._addDragSource(b, button.id);
             cell.append(b);
         }
@@ -492,7 +419,7 @@ class Layout {
     _isButtonHidden(id) {
         if (id === JH_FIXES_BUTTON)
             return !this._settings.get_boolean(KEYS.prefsButton);
-        return this._settings.get_strv(KEYS.hidden).includes(id);
+        return this._hidden.has(id);
     }
 
     _chip(item, isPresentNow) {
@@ -509,7 +436,6 @@ class Layout {
         return chip;
     }
 
-    // Focusable, draggable, and click, Enter or Space opens the popover.
     _makeInteractive(cell, item, isHidden) {
         cell.focusable = true;
         cell.cursor = Gdk.Cursor.new_from_name('pointer', null);
@@ -540,8 +466,6 @@ class Layout {
         cell._jhDragId = id;
         let hotX = 0, hotY = 0;
         source.connect('prepare', (_s, x, y) => {
-            // A drag that starts on something draggable inside this cell
-            // (a button in the top row) is that one's, not the cell's.
             for (let w = cell.pick(x, y, Gtk.PickFlags.DEFAULT); w && w !== cell; w = w.get_parent()) {
                 if (w._jhDragId)
                     return null;
@@ -553,7 +477,6 @@ class Layout {
             return Gdk.ContentProvider.new_for_value(value);
         });
         source.connect('drag-begin', src => {
-            // A still image of the item follows the pointer.
             src.set_icon(Gtk.WidgetPaintable.new(cell).get_current_image(), hotX, hotY);
             this._startDrag(id, cell);
         });
@@ -561,13 +484,6 @@ class Layout {
         cell.add_controller(source);
     }
 
-    // ---- Dragging ----
-
-    // `entry` is the dragged item's place in the menu, as in this._cells:
-    // its own cell when it comes from the menu, or a placeholder made for
-    // it while an item from Hidden is over the menu. `order` is the menu's
-    // live order while dragging. `lastMove` keeps it from flicking back
-    // and forth over the same neighbour.
     _startDrag(id, sourceCell) {
         const entry = this._cells.find(c => c.id === id) ?? null;
         this._drag = {
@@ -575,8 +491,6 @@ class Layout {
             isButton: id.startsWith('button-'),
             entry,
             fromMenu: entry !== null,
-            // Whether the menu shows the item where the pointer would drop
-            // it. It starts there when it comes from the menu.
             inMenu: entry !== null,
             order: [...this._cells],
             lastMove: null,
@@ -585,17 +499,10 @@ class Layout {
             entry.cell.add_css_class('jh-placeholder');
         else
             sourceCell.add_css_class('jh-dragged');
-        // The menu may lose a row while the item is outside it; keeping its
-        // height keeps Hidden, and everything below, from jumping up under
-        // the pointer.
-        // (Its outer size, padding included, which is what a size request
-        // sets; get_height() leaves the padding out.)
         const [, bounds] = this._frame.compute_bounds(this._frame);
         this._frame.height_request = Math.ceil(bounds.get_height());
     }
 
-    // Dropped or cancelled: the preview is rebuilt from the settings, which
-    // the drop (if any) has changed by now.
     _endDrag() {
         this._drag = null;
         this._frame.height_request = -1;
@@ -620,14 +527,10 @@ class Layout {
         if (hit) {
             if (hit.e === drag.entry)
                 return;
-            // Before or after the item under the pointer, by which half of
-            // it the pointer is on: left and right, or for an item as wide
-            // as the menu, top and bottom.
             const columns = this._settings.get_int(KEYS.columns);
             after = hit.e.span >= columns ? y > hit.y + hit.h / 2 : x > hit.x + hit.w / 2;
             target = hit.e;
         } else {
-            // Past the end of the last row, or below it: at the very end.
             const last = boxes.filter(b => b.e !== drag.entry).at(-1);
             if (!last || !(y > last.y + last.h || (y >= last.y && x > last.x + last.w)))
                 return;
@@ -646,7 +549,6 @@ class Layout {
         this._reflow();
     }
 
-    // An item from Hidden gets a stand-in in the menu while over it.
     _addPlaceholder() {
         const drag = this._drag;
         const item = arrangedItems(this._settings).find(i => i.id === drag.id);
@@ -658,7 +560,6 @@ class Layout {
         const cell = this._menuCell(item, true);
         cell.add_css_class('jh-placeholder');
         cell.can_target = false;
-        // Starts at the end; the next move puts it under the pointer.
         drag.entry = {cell, id: item.id, item, span};
         drag.order = [...drag.order, drag.entry];
         drag.lastMove = null;
@@ -667,8 +568,6 @@ class Layout {
         return true;
     }
 
-    // Leaving the menu shows it without the item: hidden if it came from
-    // the menu, gone if it was only a stand-in.
     _dragLeft() {
         const drag = this._drag;
         if (!drag?.entry || drag.isButton || !drag.inMenu)
@@ -685,7 +584,6 @@ class Layout {
         this._reflow();
     }
 
-    // Puts the cells where the live order says, as the menu would.
     _reflow() {
         const shown = this._drag.order.filter(e => e.cell.visible);
         const columns = this._settings.get_int(KEYS.columns);
@@ -698,8 +596,6 @@ class Layout {
         });
     }
 
-    // Saves the order shown: the item goes right after the one before it
-    // (or before the one after it, if it is first).
     _dropInMenu(id) {
         const drag = this._drag;
         if (!drag || drag.isButton || !drag.entry) {
@@ -712,12 +608,6 @@ class Layout {
         this._place(id, {target: before ?? next ?? null, after: before !== undefined, hide: false});
     }
 
-    // Watches drags over the whole page: scrolls it while the pointer is
-    // near its top or bottom edge, so the menu and Hidden can both be
-    // reached; and notices the pointer is outside the menu even when the
-    // menu never saw it come in (a quick flick out starts the drag only
-    // once the pointer is already past the menu, so the menu's own drop
-    // target gets no enter, and no leave).
     _watchPageScrolling() {
         const scrolled = this.menuGroup.get_ancestor(Gtk.ScrolledWindow.$gtype);
         if (!scrolled || this._scrolled === scrolled)
@@ -765,10 +655,6 @@ class Layout {
         this._scrollId = 0;
     }
 
-    // ---- Popovers ----
-
-    // Created on demand and dropped when closed, as the cells are rebuilt
-    // all the time.
     _openPopover(cell) {
         const {_item: item, _isHidden: isHidden} = cell;
         const box = new Gtk.Box({
@@ -801,7 +687,6 @@ class Layout {
         header.append(new Gtk.Label({label: item.title, css_classes: ['heading'], xalign: 0}));
         box.append(header);
 
-        // Closes the popover, then acts; `reopen` brings it back afterwards.
         const act = (f, reopen = false) => () => {
             popover.popdown();
             if (reopen)
@@ -857,8 +742,6 @@ class Layout {
         popover.popup();
     }
 
-    // Switches for the top row's buttons. They change the setting at once;
-    // the preview follows after the popover is closed.
     _topRowSwitches() {
         const list = new Gtk.ListBox({css_classes: ['boxed-list'], selection_mode: Gtk.SelectionMode.NONE});
         const add = (title, bind) => {
@@ -868,7 +751,7 @@ class Layout {
         };
         for (const {id, title} of TOP_ROW_BUTTONS)
             add(title, row => bindNotInList(this._settings, KEYS.hidden, id, row, 'active'));
-        add('jh-fixes Settings', row => this._settings.bind(KEYS.prefsButton, row, 'active', 0));
+        add(JH_FIXES_TITLE, row => this._settings.bind(KEYS.prefsButton, row, 'active', 0));
         return list;
     }
 
@@ -907,13 +790,6 @@ class Layout {
         return dropDown;
     }
 
-    /**
-     * Moves an item and/or hides or shows it.
-     *
-     * @param {string} id - the item
-     * @param {object} how - `target` and `after`: put it before or after
-     *   that item; `hide`: true to hide, false to show, absent to keep
-     */
     _place(id, {target = null, after = false, hide} = {}) {
         if (id === JH_FIXES_BUTTON) {
             if (hide !== undefined && this._settings.get_boolean(KEYS.prefsButton) === hide)

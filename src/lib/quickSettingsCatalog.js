@@ -1,13 +1,15 @@
-// The Quick Settings items jh-fixes knows by name. Pure data, so both the
-// shell side (features/quickSettings/items.js) and the preferences
-// (prefs/quickSettingsPage.js) can import it.
-//
-// Ids are stored in the settings, so never rename one.
+export const KEYS = {
+    hidden: 'hidden-quick-settings',
+    order: 'quick-settings-order',
+    widths: 'quick-settings-widths',
+    columns: 'quick-settings-columns',
+    known: 'known-quick-settings-items',
+    knownIcons: 'known-quick-settings-icons',
+    knownKinds: 'known-quick-settings-kinds',
+    present: 'present-quick-settings-items',
+    prefsButton: 'quick-settings-prefs-button',
+};
 
-/**
- * Grid items in GNOME's own order. `kind` is 'row', 'slider' or 'tile';
- * `icon` is for the preview in the preferences.
- */
 export const GRID_ITEMS = [
     {id: 'system', title: 'Top Row', icon: 'system-shutdown-symbolic', kind: 'row', subtitle: 'Battery, Screenshot, Settings, Lock, Power Off'},
     {id: 'volume-output', title: 'Volume', icon: 'audio-volume-high-symbolic', kind: 'slider'},
@@ -30,7 +32,6 @@ export const GRID_ITEMS = [
     {id: 'background-apps', title: 'Background Apps', icon: 'application-x-executable-symbolic', kind: 'row', subtitle: 'Only shown while apps run in the background'},
 ];
 
-/** Buttons inside the top row. */
 export const TOP_ROW_BUTTONS = [
     {id: 'button-battery', title: 'Battery', icon: 'battery-level-80-symbolic', subtitle: 'Only on computers with a battery'},
     {id: 'button-screenshot', title: 'Screenshot', icon: 'applets-screenshooter-symbolic'},
@@ -39,36 +40,17 @@ export const TOP_ROW_BUTTONS = [
     {id: 'button-power', title: 'Power Off / Log Out', icon: 'system-shutdown-symbolic'},
 ];
 
-/** Items added by other extensions get this prefix plus their class name. */
 export const EXTERNAL_PREFIX = 'ext:';
 
-/** Stored width meaning "all columns". */
 export const FULL_WIDTH = 0;
 
 const CATALOG_RANK = new Map(GRID_ITEMS.map(({id}, i) => [id, i]));
-// GNOME puts other extensions' items right before Background Apps.
 const EXTERNAL_RANK = CATALOG_RANK.get('background-apps') - 0.5;
 
-/**
- * Where GNOME puts an item, for sorting: built-in items in catalog order,
- * other extensions' items just before Background Apps.
- *
- * @param {string} id - item id
- * @returns {number}
- */
 export function rankOf(id) {
     return CATALOG_RANK.get(id) ?? EXTERNAL_RANK;
 }
 
-/**
- * Arranges item ids by the saved order. Ids not in `order` (all of them while
- * it is empty, or ones that turned up after it was saved) go where GNOME
- * would put them relative to the listed ones.
- *
- * @param {string[]} ids - the ids, in GNOME's order (sorted by rankOf)
- * @param {string[]} order - the saved order
- * @returns {string[]}
- */
 export function arrange(ids, order) {
     const position = new Map(order.map((id, i) => [id, i]));
     const result = ids.filter(id => position.has(id))
@@ -83,15 +65,6 @@ export function arrange(ids, order) {
     return result;
 }
 
-/**
- * The column span for an item.
- *
- * @param {number|undefined} stored - the saved width, if any
- * @param {boolean} stockFull - whether GNOME makes it span all columns
- * @param {number} stockSpan - GNOME's span otherwise
- * @param {number} columns - the grid's columns
- * @returns {number}
- */
 export function spanFor(stored, stockFull, stockSpan, columns) {
     let span;
     if (stored === undefined)

@@ -1,50 +1,19 @@
-// Rename and hide entries in the Quick Settings "Sound Output" and "Sound
-// Input" menus.
-//
-// GNOME Shell builds those menus in ui/status/volume.js (OutputStreamSlider,
-// InputStreamSlider). Each device gets a PopupImageMenuItem stored in
-// slider._deviceItems, keyed by a Gvc device id. Those ids are reassigned
-// every session, so settings are keyed by the device's "description|origin"
-// text instead.
-//
-// The slider calls this._sync() after every device change, so overriding it on
-// the instance is enough to re-apply names and visibility at the right time.
-//
-// The input slider only shows up in Quick Settings while an app is recording,
-// so its menu can only be seen then; the devices are tracked all the time.
-
 import GLib from 'gi://GLib';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {whenReady} from '../../lib/shell.js';
 
-/**
- * @param {object} device - a Gvc.MixerUIDevice
- * @returns {string} the label GNOME itself shows for the device
- */
 function defaultLabel(device) {
     const {description, origin} = device;
     return origin ? `${description} – ${origin}` : description;
 }
 
-/**
- * @param {object} device - a Gvc.MixerUIDevice
- * @returns {string} a key that stays the same across sessions
- */
 function deviceKey(device) {
     return `${device.description}|${device.origin ?? ''}`;
 }
 
-/**
- * Shared code for both menus. Subclasses say which slider to use, which
- * settings keys hold their data (known-, -names, hidden-), and how to find
- * the active device.
- */
 class DeviceMenuTweak {
-    static KIND = '';            // 'output' or 'input', used in the key names
-    static ACTIVE_SIGNAL = '';   // MixerControl signal for active device changes
-
     constructor(settings) {
         this._settings = settings;
         this._slider = null;
@@ -57,13 +26,12 @@ class DeviceMenuTweak {
     }
 
     enable() {
+        const apply = () => this._apply();
         this._settings.connectObject(
-            `changed::${this._namesKey}`, () => this._apply(),
-            `changed::${this._hiddenKey}`, () => this._apply(),
+            `changed::${this._namesKey}`, apply,
+            `changed::${this._hiddenKey}`, apply,
             this);
 
-        // QuickSettings creates its indicators asynchronously, so at login the
-        // slider may not exist yet when the extension is enabled.
         this._cancelWait = whenReady(() => this._findSlider(),
             slider => this._attach(slider),
             `sound ${this.constructor.KIND} slider`);
@@ -76,14 +44,6 @@ class DeviceMenuTweak {
         this._detach();
     }
 
-    _findSlider() {
-        return null;
-    }
-
-    _activeStream(_control) {
-        return null;
-    }
-
     _attach(slider) {
         this._slider = slider;
         const self = this;
@@ -92,11 +52,7 @@ class DeviceMenuTweak {
             origSync.call(this);
             self._apply();
         };
-        // Active device changes only move the check mark; re-apply so a hidden
-        // device shows up while it is the active one.
-        slider._control.connectObject(
-            this.constructor.ACTIVE_SIGNAL, () => this._apply(),
-            this);
+        slider._control.connectObject(this.constructor.ACTIVE_SIGNAL, () => this._apply(), this);
         this._apply();
     }
 
@@ -151,14 +107,10 @@ class DeviceMenuTweak {
                 visibleCount++;
         }
 
-        // GNOME only offers the menu with more than one device; count the
-        // ones that are left after hiding.
         slider.menuEnabled = visibleCount > 1;
 
-        if (knownChanged) {
-            this._settings.set_value(this._knownKey,
-                new GLib.Variant('a{ss}', known));
-        }
+        if (knownChanged)
+            this._settings.set_value(this._knownKey, new GLib.Variant('a{ss}', known));
     }
 }
 

@@ -1,16 +1,5 @@
-// Base class for on/off features.
-
 import {InjectionManager} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-/**
- * A feature that changes the shell while one boolean setting differs from
- * GNOME's own behaviour (DEFAULT). Subclasses set KEY and implement
- * _apply() and _revert(). Method overrides made with this._injections are
- * undone automatically after _revert().
- *
- * The schema defaults match stock GNOME, so a tweak does nothing until the
- * user flips its switch.
- */
 export class SettingTweak {
     static KEY = '';
     static DEFAULT = true;
@@ -41,7 +30,6 @@ export class SettingTweak {
     }
 
     _setApplied(applied) {
-        // Flip first, so a half-done _apply() still gets reverted on disable.
         this._applied = applied;
         if (applied) {
             this._apply();

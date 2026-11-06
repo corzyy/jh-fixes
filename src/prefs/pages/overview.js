@@ -1,5 +1,3 @@
-// Overview section of the Shell page. Shell side: features/overview/.
-
 import {choice, group, toggle} from '../ui/build.js';
 
 const AUTOMATIC = 0;

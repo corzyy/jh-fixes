@@ -1,13 +1,3 @@
-// Shell side: turns every feature on and off.
-//
-// The code is split into areas, in the same order and with the same names
-// as the pages of the preferences window (src/prefs/pages/). Each area's
-// index.js lists its features.
-//
-// A feature is a class with enable() and disable(), constructed with the
-// extension's GSettings and the extension. It watches its own settings
-// keys and changes the shell only while they differ from GNOME's defaults.
-
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import * as TopBar from './features/topBar/index.js';
@@ -35,7 +25,6 @@ export default class JhFixesExtension extends Extension {
         }
     }
 
-    // In reverse, so features that build on others go first.
     disable() {
         for (const feature of this._features.reverse()) {
             try {

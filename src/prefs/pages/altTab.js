@@ -1,5 +1,3 @@
-// Alt+Tab section of the Shell page. Shell side: features/altTab/.
-
 import {choice, group, number} from '../ui/build.js';
 
 export default {

@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <!-- Defaults match stock GNOME (except the dash icon cap), so nothing changes until a switch is flipped.
-       Grouped like the preferences pages. Key names are kept as they are, so saved settings stay. -->
   <schema id="org.gnome.shell.extensions.jh-fixes" path="/org/gnome/shell/extensions/jh-fixes/">
 
-    <!-- Top Bar (features/topBar/, prefs/pages/topBar.js) -->
     <key name="panel-activities-button" type="b">
       <default>true</default>
       <summary>Show the Activities button</summary>
@@ -20,7 +17,6 @@
       <description>"default" is GNOME's own clock, which follows the Date &amp; Time settings; "time" leaves out the date and weekday.</description>
     </key>
 
-    <!-- Quick Settings (features/quickSettings/, prefs/pages/quickSettings.js) -->
     <key name="hidden-quick-settings" type="as">
       <default>[]</default>
       <summary>Hidden Quick Settings items</summary>
@@ -108,7 +104,6 @@
       <description>Device keys left out of the Quick Settings input menu. The active device is always shown.</description>
     </key>
 
-    <!-- Dash (features/dock/, prefs/pages/dock.js) -->
     <key name="dash-visible" type="b">
       <default>true</default>
       <summary>Show the dash</summary>
@@ -124,7 +119,6 @@
       <summary>Show the Show Apps button in the dash</summary>
     </key>
 
-    <!-- Overview (features/overview/, prefs/pages/overview.js) -->
     <key name="overview-window-titles" type="b">
       <default>true</default>
       <summary>Show window titles in the Overview</summary>
@@ -143,7 +137,6 @@
       <description>0 lets GNOME choose (or follows the columns and the page's shape).</description>
     </key>
 
-    <!-- Windows (features/windows/, prefs/pages/windows.js) -->
     <key name="window-corners" type="b">
       <default>false</default>
       <summary>Round the corners of windows</summary>
@@ -160,7 +153,6 @@
       <description>Only used while show-desktop is on.</description>
     </key>
 
-    <!-- Alt+Tab (features/altTab/, prefs/pages/altTab.js) -->
     <key name="alt-tab-mode" type="s">
       <choices>
         <choice value="apps"/>
@@ -188,7 +180,6 @@
       <description>How long the switcher waits before it appears, so quick presses don't flash it. GNOME uses 150.</description>
     </key>
 
-    <!-- Appearance (features/appearance/, prefs/pages/appearance.js). The top bar background keys are shown on the Top Bar page. -->
     <key name="shell-theme" type="b">
       <default>false</default>
       <summary>Use the Umbra shell theme</summary>

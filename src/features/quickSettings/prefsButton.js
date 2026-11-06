@@ -1,7 +1,3 @@
-// A button in the top row of Quick Settings (next to GNOME's Settings
-// button) that opens the jh-fixes preferences. Built like the Settings
-// button in ui/status/system.js.
-
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -47,8 +43,6 @@ export class PrefsButton extends SettingTweak {
             this._extension.openPreferences();
         });
 
-        // Right after GNOME's Settings button, which comes just before the
-        // spacer that pushes Lock and Power Off to the right.
         const box = systemItem.child;
         const spacer = systemItem._desktopSpacer;
         if (spacer?.get_parent() === box)

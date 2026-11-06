@@ -1,5 +1,3 @@
-// Loader: builds the preferences from the current build (see common.js).
-
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {importFromCurrentBuild} from './common.js';

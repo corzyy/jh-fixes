@@ -1,6 +1,3 @@
-// Rows for the Umbra shell theme that need more than a plain setting.
-// Shell side: features/appearance/theme/.
-
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -9,11 +6,8 @@ import Gtk from 'gi://Gtk';
 
 import {bindNotInList, buildRow, number, onChanged, toggles} from '../ui/build.js';
 
-export const DISABLED_STYLES_KEY = 'shell-theme-disabled-styles';
+const DISABLED_STYLES_KEY = 'shell-theme-disabled-styles';
 
-// One entry per style part that can be switched off (STYLE_PARTS in
-// features/appearance/theme/build.js, minus FIXED_PARTS): id, title and its
-// options.
 export const STYLES = [
     {id: 'sliders', title: 'Sliders', options: [
         number('shell-theme-slider-height', 'Quick Settings slider thickness', '', {unit: 'px'}),
@@ -26,20 +20,11 @@ export const STYLES = [
     ]},
 ];
 
-// Every key the style rows change.
 export const STYLE_KEYS = [
     DISABLED_STYLES_KEY,
     ...STYLES.flatMap(s => s.options.map(o => o.key)),
 ];
 
-/**
- * One area of the theme: a switch (on unless listed in the disabled key)
- * and, if it has any, its options inside.
- *
- * @param {object} style - an entry of STYLES
- * @param {object} ctx - {settings, window}
- * @returns {Adw.ActionRow|Adw.ExpanderRow}
- */
 export function styleRow(style, ctx) {
     const {settings} = ctx;
     const control = new Gtk.Switch({valign: Gtk.Align.CENTER});
@@ -63,12 +48,6 @@ export function styleRow(style, ctx) {
 
 const USER_THEMES = 'user-theme@gnome-shell-extensions.gcampax.github.com';
 
-/**
- * A warning, shown only while the User Themes extension is on: it sets its
- * own shell theme and would fight Umbra over the stylesheet.
- *
- * @returns {Adw.ActionRow}
- */
 export function userThemesWarning() {
     const shellSettings = new Gio.Settings({schema_id: 'org.gnome.shell'});
     const row = new Adw.ActionRow({

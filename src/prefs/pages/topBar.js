@@ -1,5 +1,3 @@
-// Top Bar section of the Shell page. Shell side: features/topBar/.
-
 import {choice, group, number, toggle, toggles} from '../ui/build.js';
 
 export default {

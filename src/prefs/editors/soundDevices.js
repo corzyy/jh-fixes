@@ -1,28 +1,15 @@
-// Lists of sound devices to rename or hide in the Quick Settings sound
-// menus. Shell side: features/quickSettings/soundDevices.js, which also
-// fills in the devices it has seen.
-
 import Adw from 'gi://Adw';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 
 import {bindNotInList, onChanged} from '../ui/build.js';
 
-// kind is 'output' or 'input', as in the settings key names.
 export const deviceKeys = kind => ({
     known: `known-${kind}-devices`,
     names: `${kind}-device-names`,
     hidden: `hidden-${kind}-devices`,
 });
 
-/**
- * A group with one row per device seen so far: its name (edit to rename,
- * empty for GNOME's name), a switch to show it, and a button to forget it.
- *
- * @param {Gio.Settings} settings - the settings
- * @param {string} kind - 'output' or 'input'
- * @returns {Adw.PreferencesGroup}
- */
 export function deviceGroup(settings, kind) {
     const keys = deviceKeys(kind);
     const group = new Adw.PreferencesGroup({
@@ -60,7 +47,6 @@ function deviceRow(settings, keys, key, label) {
         text: getMap(keys.names)[key] ?? '',
         show_apply_button: true,
     });
-    // Follows the saved name, unless it is being typed into.
     onChanged(settings, keys.names, () => {
         if (!row.get_focus_child())
             row.text = getMap(keys.names)[key] ?? '';

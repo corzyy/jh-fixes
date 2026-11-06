@@ -1,4 +1,3 @@
-/* ---- Sliders: thin flat track, small solid knob ---- */
 .slider {
   color: #f4f4f5;
   -barlevel-height: 6px;
@@ -19,7 +18,6 @@
   padding: 9px 6px;
   border-radius: 999px; }
 
-/* mute + arrow buttons: perfect circles matching the row height (36px) */
 .quick-slider .icon-button {
   width: 36px;
   height: 36px;
@@ -28,4 +26,3 @@
   .quick-slider .slider-bin:focus {
     box-shadow: none !important;
     background-color: rgba(255, 255, 255, 0.04); }
-

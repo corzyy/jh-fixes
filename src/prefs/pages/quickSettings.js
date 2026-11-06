@@ -1,10 +1,7 @@
-// Quick Settings page. Shell side: features/quickSettings/.
-
 import {customGroups, group, link, number, toggle} from '../ui/build.js';
 import {LAYOUT_KEYS, quickSettingsLayout} from '../editors/quickSettingsLayout.js';
 import {deviceGroup, deviceKeys} from '../editors/soundDevices.js';
 
-// A page with the devices of one kind ('output' or 'input').
 const devicesPage = (kind, title) => ({settings}) => ({
     title,
     groups: [

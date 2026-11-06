@@ -1,165 +1,39 @@
-// Builds the preferences from plain descriptions.
-//
-// A page (src/prefs/pages/) is an object: a title, an icon, a sentence
-// about it, and groups of rows. Rows are made with the small functions
-// below, toggle(), choice(), number() and so on, each naming its settings
-// key, a title and a subtitle. This file turns that into libadwaita widgets
-// bound to the settings, so the pages only say *what* there is.
-//
-// Every row that has a key gets, for free:
-//   - a reset button (↺) that shows up once the value is not the default;
-//   - "(default)" next to the default choice in drop-downs;
-//   - `requires`: greyed out until another setting allows it, e.g.
-//     requires: 'dash-visible', or {key: 'x', isNot: 'never'}, or
-//     {key: 'x', in: ['a', 'b']};
-//   - `showIf`: the same kind of condition, but the row is hidden rather
-//     than greyed out while it doesn't hold;
-//   - a place in the page's "Reset" button at the bottom.
-//
-// A toggle with `options` becomes an expandable row: its options sit
-// inside, and only apply while it is on.
-//
-// A page can also hold sections (section()): whole areas described like
-// pages, shown as rows that fold open, with the area's groups inside under
-// a note where a group has a description.
-
 import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import Gtk from 'gi://Gtk';
 
-// ---- Descriptions ----
-
-/**
- * An on/off switch for a boolean key.
- *
- * @param {string} key - boolean key
- * @param {string} title - what it is
- * @param {string} [subtitle] - what it does
- * @param {object} [extra] - options: rows inside, only active while on;
- *   requires: see the top of the file
- * @returns {object}
- */
 export const toggle = (key, title, subtitle = '', extra = {}) =>
     ({type: 'toggle', key, title, subtitle, ...extra});
 
-/**
- * A drop-down for a string key (choices are [value, label]) or an int key
- * (choices are numbers, labelled by extra.format).
- *
- * @returns {object}
- */
 export const choice = (key, title, subtitle, choices, extra = {}) =>
     ({type: 'choice', key, title, subtitle, choices, ...extra});
 
-/**
- * Buttons next to each other, one per choice, for a string key with a few
- * choices ([value, label] pairs). The default one is marked in its tooltip.
- *
- * @returns {object}
- */
 export const toggles = (key, title, subtitle, choices, extra = {}) =>
     ({type: 'toggles', key, title, subtitle, choices, ...extra});
 
-/**
- * A number entry with +/- for an int key, within the key's range.
- * extra.unit is shown after it, extra.step is the +/- step.
- *
- * @returns {object}
- */
 export const number = (key, title, subtitle = '', extra = {}) =>
     ({type: 'number', key, title, subtitle, ...extra});
 
-/**
- * A slider for an int key, within the key's range. extra.marks are values
- * to mark below it, extra.unit is shown after the value.
- *
- * @returns {object}
- */
 export const slider = (key, title, subtitle = '', extra = {}) =>
     ({type: 'slider', key, title, subtitle, ...extra});
 
-/**
- * A text entry for a string key, saved with Enter or the ✓ button.
- * extra.preview(text) returns a line shown next to it while typing (null
- * hides it); extra.presets are [value, label] pairs to pick from.
- *
- * @returns {object}
- */
-export const text = (key, title, extra = {}) =>
-    ({type: 'text', key, title, ...extra});
-
-/**
- * A keyboard shortcut, for a string list key read by the window manager.
- *
- * @returns {object}
- */
 export const shortcut = (key, title, subtitle = '', extra = {}) =>
     ({type: 'shortcut', key, title, subtitle, ...extra});
 
-/**
- * A row that opens a page of its own, described like a page.
- *
- * @param {string} title - row and page title
- * @param {string} subtitle - what is on that page
- * @param {(ctx: object) => object} page - returns the page's description
- * @param {object} [extra] - requires
- * @returns {object}
- */
 export const link = (title, subtitle, page, extra = {}) =>
     ({type: 'link', title, subtitle, page, ...extra});
 
-/**
- * A row made by hand. build(ctx) returns the row; keys are the settings it
- * changes, for the page's reset button.
- *
- * @returns {object}
- */
 export const custom = (build, keys = [], extra = {}) =>
     ({type: 'custom', build, keys, ...extra});
 
-/**
- * A group of rows under a heading.
- *
- * @param {string} title - heading, may be empty
- * @param {string} description - a line under the heading, may be empty
- * @param {object[]} rows - row descriptions
- * @param {object} [extra] - requires
- * @returns {object}
- */
 export const group = (title, description, rows, extra = {}) =>
     ({type: 'group', title, description, rows, ...extra});
 
-/**
- * A fold-open section of a page holding a whole area, described like a page
- * ({title, icon, description, groups}). Its groups' rows follow each other
- * without the group titles; a group's description stays as a note above
- * its rows. Groups made by hand (customGroups) can't go in a section.
- *
- * @param {object} spec - the area
- * @returns {object}
- */
 export const section = spec => ({type: 'section', ...spec});
 
-/**
- * Whole groups made by hand. build(ctx) returns Adw.PreferencesGroups.
- *
- * @returns {object}
- */
 export const customGroups = (build, keys = []) =>
     ({type: 'customGroups', build, keys});
 
-// ---- Settings helpers ----
-
-/**
- * Calls callback whenever one of the keys changes, until widget is
- * destroyed. Prefs windows come and go while the settings object (and the
- * prefs process) lives on, so handlers must not outlive their widgets.
- *
- * @param {Gio.Settings} settings - the settings
- * @param {string|string[]} keys - the key(s) to watch
- * @param {() => void} callback - called on every change
- * @param {Gtk.Widget} widget - the widget the handler belongs to
- */
 export function onChanged(settings, keys, callback, widget) {
     const ids = [keys].flat().map(key => settings.connect(`changed::${key}`, () => callback()));
     widget.connect('destroy', () => ids.forEach(id => settings.disconnect(id)));
@@ -178,16 +52,6 @@ function rangeOf(settings, key) {
     return range.deepUnpack();
 }
 
-/**
- * Binds a boolean property of obj to "id is NOT in the string list key",
- * for lists of hidden or switched-off things.
- *
- * @param {Gio.Settings} settings - the settings
- * @param {string} key - string list key
- * @param {string} id - the entry obj controls
- * @param {GObject.Object} obj - the widget
- * @param {string} prop - its boolean property, e.g. 'active'
- */
 export function bindNotInList(settings, key, id, obj, prop) {
     const sync = () => {
         const value = !settings.get_strv(key).includes(id);
@@ -207,8 +71,6 @@ export function bindNotInList(settings, key, id, obj, prop) {
         settings.set_strv(key, [...list]);
     });
 }
-
-// ---- Conditions ----
 
 function conditionKeys(requires) {
     if (!requires)
@@ -231,7 +93,6 @@ function holds(settings, requires) {
     return 'is' in requires ? value === requires.is : value !== requires.isNot;
 }
 
-// A row inside a toggle's options also needs the toggle to be on.
 const andAlso = (a, b) => [a, b].filter(Boolean).flat();
 
 function bindRequires(widget, settings, requires, prop = 'sensitive') {
@@ -242,9 +103,6 @@ function bindRequires(widget, settings, requires, prop = 'sensitive') {
     sync();
 }
 
-// ---- Rows ----
-
-// The ↺ button, shown while any of the keys is not at its default.
 function addResetButton(row, settings, keys) {
     const button = new Gtk.Button({
         icon_name: 'edit-undo-symbolic',
@@ -260,19 +118,41 @@ function addResetButton(row, settings, keys) {
 }
 
 function actionRow(d) {
-    // Markup off before the text goes in, so "&" and "<" show as they are.
     const row = new Adw.ActionRow({use_markup: false});
     row.set({title: d.title, subtitle: d.subtitle ?? ''});
     return row;
 }
 
-/**
- * Builds one row from its description.
- *
- * @param {object} d - row description
- * @param {object} ctx - {settings, window}
- * @returns {Gtk.Widget}
- */
+function keyRow(d, settings, ...suffixes) {
+    const row = actionRow(d);
+    addResetButton(row, settings, [d.key]);
+    suffixes.forEach(w => row.add_suffix(w));
+    return row;
+}
+
+function intControl(Widget, d, settings, props) {
+    const [lower, upper] = rangeOf(settings, d.key);
+    const step = d.step ?? 1;
+    const control = new Widget({
+        adjustment: new Gtk.Adjustment({lower, upper, step_increment: step, page_increment: step * 5}),
+        valign: Gtk.Align.CENTER,
+        ...props,
+    });
+    const value = () => Math.round(control.get_value());
+    const sync = () => {
+        const saved = settings.get_int(d.key);
+        if (value() !== saved)
+            control.set_value(saved);
+    };
+    sync();
+    onChanged(settings, d.key, sync, control);
+    control.connect('value-changed', () => {
+        if (value() !== settings.get_int(d.key))
+            settings.set_int(d.key, value());
+    });
+    return control;
+}
+
 export function buildRow(d, ctx) {
     const row = ROW_BUILDERS[d.type](d, ctx);
     bindRequires(row, ctx.settings, d.requires);
@@ -287,23 +167,16 @@ const ROW_BUILDERS = {
         settings.bind(d.key, control, 'active', 0);
 
         if (!d.options?.length) {
-            const row = actionRow(d);
-            addResetButton(row, settings, [d.key]);
-            row.add_suffix(control);
+            const row = keyRow(d, settings, control);
             row.activatable_widget = control;
             return row;
         }
 
-        // On/off, with its options inside. They only apply while it is on.
-        // An expander row stacks its suffixes the other way round, so the
-        // switch goes in first to end up right of the reset button.
         const row = new Adw.ExpanderRow({title: d.title, subtitle: d.subtitle ?? ''});
         row.add_suffix(control);
         addResetButton(row, settings, [d.key]);
         for (const option of d.options)
             row.add_row(buildRow({...option, requires: andAlso(option.requires, d.key)}, ctx));
-        // Opens with its options showing while it is on, and turning it on
-        // shows them.
         row.expanded = settings.get_boolean(d.key);
         control.connect('notify::active', () => {
             if (control.active)
@@ -317,20 +190,18 @@ const ROW_BUILDERS = {
         const values = isInt ? d.choices : d.choices.map(([value]) => value);
         const format = d.format ?? (v => `${v}`);
         const fallback = defaultOf(settings, d.key);
-        const labels = isInt
-            ? d.choices.map(v => format(v))
-            : d.choices.map(([, label]) => label);
-        const marked = labels.map((label, i) =>
-            (values[i] === fallback ? `${label} (default)` : label));
+        const labels = d.choices.map((c, i) => {
+            const label = isInt ? format(c) : c[1];
+            return values[i] === fallback ? `${label} (default)` : label;
+        });
 
         const control = new Gtk.DropDown({
-            model: Gtk.StringList.new(marked),
+            model: Gtk.StringList.new(labels),
             valign: Gtk.Align.CENTER,
         });
         const sync = () => {
             const current = settings.get_value(d.key).deepUnpack();
             let index = values.indexOf(current);
-            // An int that is not a choice: the largest choice below it.
             if (index < 0 && isInt)
                 index = Math.max(0, values.findLastIndex(v => v <= current));
             if (index >= 0 && control.selected !== index)
@@ -348,9 +219,7 @@ const ROW_BUILDERS = {
                 settings.set_string(d.key, value);
         });
 
-        const row = actionRow(d);
-        addResetButton(row, settings, [d.key]);
-        row.add_suffix(control);
+        const row = keyRow(d, settings, control);
         row.activatable_widget = control;
         return row;
     },
@@ -358,140 +227,30 @@ const ROW_BUILDERS = {
     toggles(d, {settings}) {
         const fallback = defaultOf(settings, d.key);
         const control = new Adw.ToggleGroup({valign: Gtk.Align.CENTER});
-        for (const [value, label] of d.choices) {
-            control.add(new Adw.Toggle({
-                name: value, label,
-                tooltip: value === fallback ? 'Default' : '',
-            }));
-        }
+        for (const [value, label] of d.choices)
+            control.add(new Adw.Toggle({name: value, label, tooltip: value === fallback ? 'Default' : ''}));
         settings.bind(d.key, control, 'active-name', 0);
-
-        const row = actionRow(d);
-        addResetButton(row, settings, [d.key]);
-        row.add_suffix(control);
-        return row;
+        return keyRow(d, settings, control);
     },
 
     number(d, {settings}) {
-        const [lower, upper] = rangeOf(settings, d.key);
-        const step = d.step ?? 1;
-        const control = new Gtk.SpinButton({
-            adjustment: new Gtk.Adjustment({
-                lower, upper, step_increment: step, page_increment: step * 5,
-            }),
-            numeric: true,
-            valign: Gtk.Align.CENTER,
-        });
-        const sync = () => {
-            const value = settings.get_int(d.key);
-            if (control.get_value_as_int() !== value)
-                control.value = value;
-        };
-        sync();
-        onChanged(settings, d.key, sync, control);
-        control.connect('value-changed', () => {
-            const value = control.get_value_as_int();
-            if (value !== settings.get_int(d.key))
-                settings.set_int(d.key, value);
-        });
-
-        const row = actionRow(d);
-        addResetButton(row, settings, [d.key]);
-        row.add_suffix(control);
-        if (d.unit)
-            row.add_suffix(new Gtk.Label({label: d.unit, css_classes: ['dim-label']}));
-        return row;
+        const control = intControl(Gtk.SpinButton, d, settings, {numeric: true});
+        return d.unit
+            ? keyRow(d, settings, control, new Gtk.Label({label: d.unit, css_classes: ['dim-label']}))
+            : keyRow(d, settings, control);
     },
 
     slider(d, {settings}) {
-        const [lower, upper] = rangeOf(settings, d.key);
-        const step = d.step ?? 1;
-        const control = new Gtk.Scale({
-            adjustment: new Gtk.Adjustment({
-                lower, upper, step_increment: step, page_increment: step * 5,
-            }),
+        const control = intControl(Gtk.Scale, d, settings, {
             digits: 0,
             draw_value: true,
             value_pos: Gtk.PositionType.LEFT,
             width_request: 220,
-            valign: Gtk.Align.CENTER,
         });
         for (const mark of d.marks ?? [])
             control.add_mark(mark, Gtk.PositionType.BOTTOM, null);
         control.set_format_value_func((_s, v) => `${Math.round(v)}${d.unit ?? ''}`);
-        const sync = () => {
-            const value = settings.get_int(d.key);
-            if (Math.round(control.get_value()) !== value)
-                control.set_value(value);
-        };
-        sync();
-        onChanged(settings, d.key, sync, control);
-        control.connect('value-changed', () => {
-            const value = Math.round(control.get_value());
-            if (value !== settings.get_int(d.key))
-                settings.set_int(d.key, value);
-        });
-
-        const row = actionRow(d);
-        addResetButton(row, settings, [d.key]);
-        row.add_suffix(control);
-        return row;
-    },
-
-    text(d, {settings}) {
-        const row = new Adw.EntryRow({title: d.title, show_apply_button: true});
-        const sync = () => {
-            const value = settings.get_string(d.key);
-            if (row.text !== value)
-                row.text = value;
-        };
-        sync();
-        onChanged(settings, d.key, sync, row);
-        row.connect('apply', () => {
-            if (row.text !== settings.get_string(d.key))
-                settings.set_string(d.key, row.text);
-        });
-
-        if (d.preview) {
-            const preview = new Gtk.Label({css_classes: ['dim-label'], valign: Gtk.Align.CENTER});
-            const update = () => {
-                const shown = d.preview(row.text);
-                preview.label = shown ?? '';
-                preview.visible = Boolean(shown);
-            };
-            update();
-            row.connect('changed', update);
-            row.add_suffix(preview);
-        }
-
-        if (d.presets?.length) {
-            const list = new Gtk.ListBox({
-                selection_mode: Gtk.SelectionMode.NONE,
-                css_classes: ['boxed-list'],
-            });
-            const popover = new Gtk.Popover({child: list});
-            for (const [value, label] of d.presets) {
-                const item = new Adw.ActionRow({
-                    title: label, subtitle: value || 'GNOME default',
-                    activatable: true, use_markup: false,
-                });
-                item.connect('activated', () => {
-                    settings.set_string(d.key, value);
-                    popover.popdown();
-                });
-                list.append(item);
-            }
-            row.add_suffix(new Gtk.MenuButton({
-                icon_name: 'view-more-symbolic',
-                tooltip_text: 'Examples',
-                popover,
-                valign: Gtk.Align.CENTER,
-                css_classes: ['flat'],
-            }));
-        }
-
-        addResetButton(row, settings, [d.key]);
-        return row;
+        return keyRow(d, settings, control);
     },
 
     shortcut(d, {settings}) {
@@ -500,14 +259,11 @@ const ROW_BUILDERS = {
         sync();
         onChanged(settings, d.key, sync, label);
 
-        const row = actionRow(d);
+        const row = keyRow(d, settings, label);
         row.activatable = true;
         row.tooltip_text = 'Click to change';
-        addResetButton(row, settings, [d.key]);
-        row.add_suffix(label);
-        row.connect('activated', () => askForShortcut(row, d.title, accel => {
-            settings.set_strv(d.key, accel ? [accel] : []);
-        }));
+        row.connect('activated', () => askForShortcut(row, d.title,
+            accel => settings.set_strv(d.key, accel ? [accel] : [])));
         return row;
     },
 
@@ -525,15 +281,12 @@ const ROW_BUILDERS = {
     },
 };
 
-// Keys that make a shortcut without a modifier.
 const BARE_KEYS = new Set([
     Gdk.KEY_F1, Gdk.KEY_F2, Gdk.KEY_F3, Gdk.KEY_F4, Gdk.KEY_F5, Gdk.KEY_F6,
     Gdk.KEY_F7, Gdk.KEY_F8, Gdk.KEY_F9, Gdk.KEY_F10, Gdk.KEY_F11, Gdk.KEY_F12,
     Gdk.KEY_Print, Gdk.KEY_Pause, Gdk.KEY_Scroll_Lock,
 ]);
 
-// A dialog that waits for a key combination. Escape cancels, Backspace
-// gives null (no shortcut).
 function askForShortcut(parent, title, done) {
     const dialog = new Adw.AlertDialog({
         heading: title,
@@ -554,16 +307,12 @@ function askForShortcut(parent, title, done) {
             done(Gtk.accelerator_name(key, mods));
             dialog.close();
         }
-        // Anything else (a modifier on its own, a bare letter): keep waiting.
         return Gdk.EVENT_STOP;
     });
     dialog.add_controller(keys);
     dialog.present(parent);
 }
 
-// ---- Groups and pages ----
-
-// Every settings key a description touches, for the reset button.
 function keysOf(d) {
     switch (d.type) {
     case 'group':
@@ -594,8 +343,6 @@ function buildGroups(d, ctx) {
     return [g];
 }
 
-// A group's description inside a section, as a small note. A plain list
-// row, so the window's search doesn't list it as a setting.
 function sectionNote(description) {
     return new Gtk.ListBoxRow({
         child: new Gtk.Label({
@@ -606,8 +353,6 @@ function sectionNote(description) {
     });
 }
 
-// A section: one row that folds open, with every group of the area inside.
-// While folded, it says how many of its settings differ from the default.
 function buildSection(d, ctx) {
     const {settings} = ctx;
     const row = new Adw.ExpanderRow({title: d.title, subtitle: d.description ?? ''});
@@ -622,11 +367,6 @@ function buildSection(d, ctx) {
             bindRequires(note, settings, g.requires);
             row.add_row(note);
         }
-        // The group's condition goes on each of its rows. A toggle's options
-        // follow it as indented rows rather than folding out of it: GTK
-        // passes an open row's state to every row inside it, so a folding
-        // row inside a section would always look open. They are only shown
-        // while the toggle is on.
         for (const r of g.rows) {
             const requires = andAlso(r.requires, g.requires);
             row.add_row(buildRow({...r, options: undefined, requires}, ctx));
@@ -658,8 +398,6 @@ function buildSection(d, ctx) {
     return g;
 }
 
-// "Reset N Changed Settings" at the bottom of a page, for the settings it
-// shows; only there while some of them are changed.
 function resetGroup(keys, {settings}) {
     const g = new Adw.PreferencesGroup();
     const button = new Adw.ButtonRow({css_classes: ['destructive-action']});
@@ -683,13 +421,6 @@ function fillPage(page, spec, ctx) {
         page.add(resetGroup(keys, ctx));
 }
 
-/**
- * Builds a page of the preferences window.
- *
- * @param {object} spec - {title, icon, description, groups}
- * @param {object} ctx - {settings, window}
- * @returns {Adw.PreferencesPage}
- */
 export function buildPage(spec, ctx) {
     addCss('base', CSS);
     const page = new Adw.PreferencesPage({
@@ -701,7 +432,6 @@ export function buildPage(spec, ctx) {
     return page;
 }
 
-// A page opened from a link row, with a back button.
 function buildSubpage(spec, ctx) {
     const page = new Adw.PreferencesPage({description: spec.description ?? ''});
     fillPage(page, spec, ctx);
@@ -710,8 +440,6 @@ function buildSubpage(spec, ctx) {
     return new Adw.NavigationPage({title: spec.title, child: view});
 }
 
-// ---- Style ----
-
 const CSS = `
 .jh-reset { min-width: 24px; min-height: 24px; padding: 0; opacity: 0.7; }
 .jh-reset:hover { opacity: 1; }
@@ -719,14 +447,6 @@ const CSS = `
 .jh-option { padding-left: 24px; }
 `;
 
-/**
- * Loads CSS for the preferences. The prefs process outlives the window and,
- * with `make install`, several builds of this code, so each name keeps one
- * provider on the display and gets the current build's CSS every time.
- *
- * @param {string} name - which CSS this is
- * @param {string} css - the CSS
- */
 export function addCss(name, css) {
     const display = Gdk.Display.get_default();
     if (!display)
@@ -740,4 +460,3 @@ export function addCss(name, css) {
     }
     provider.load_from_string(css);
 }
-

@@ -1,5 +1,3 @@
-// Appearance page. Shell side: features/appearance/.
-
 import {choice, custom, group, slider, toggle} from '../ui/build.js';
 import {STYLES, STYLE_KEYS, styleRow, userThemesWarning} from '../editors/theme.js';
 

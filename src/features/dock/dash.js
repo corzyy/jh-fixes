@@ -1,5 +1,3 @@
-// The Overview dash (ui/dash.js): show or hide its parts, cap its icon size.
-
 import St from 'gi://St';
 
 import {InjectionManager} from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -9,7 +7,6 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {setShownInLayout} from '../../lib/shell.js';
 import {SettingTweak} from '../../lib/tweak.js';
 
-/** Hides the whole dash. The app grid stays reachable with Super+A. */
 export class DashVisible extends SettingTweak {
     static KEY = 'dash-visible';
 
@@ -22,7 +19,6 @@ export class DashVisible extends SettingTweak {
     }
 }
 
-/** Hides the "Show Apps" grid button at the end of the dash. */
 export class DashShowAppsButton extends SettingTweak {
     static KEY = 'dash-show-apps-button';
 
@@ -35,14 +31,6 @@ export class DashShowAppsButton extends SettingTweak {
     }
 }
 
-/**
- * Caps the dash icon size. GNOME picks it in Dash._adjustIconSize: the
- * largest of 16/22/24/32/48/64 px that fits in this._maxHeight minus the
- * dash's paddings. A theme cannot limit that, so the method is wrapped and
- * handed a _maxHeight that leaves room for exactly the capped size. The
- * original code then chooses the size (and animates) as usual, with no
- * flicker.
- */
 export class DashIconSize {
     static KEY = 'dash-max-icon-size';
 
@@ -57,7 +45,6 @@ export class DashIconSize {
             throw new Error('Overview dash not found');
 
         const maxHeightFor = d => this._maxHeightFor(d);
-        // On the prototype, so every Dash is capped.
         this._injections.overrideMethod(Dash.Dash.prototype, '_adjustIconSize',
             original => function () {
                 if (this._maxWidth === -1 || this._maxHeight === -1)
@@ -83,7 +70,6 @@ export class DashIconSize {
         Main.overview.dash?._adjustIconSize();
     }
 
-    // Same height overhead as Dash._adjustIconSize, plus the capped size.
     _maxHeightFor(dash) {
         const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
         const cap = this._settings.get_int(DashIconSize.KEY) * scale;

@@ -1,15 +1,11 @@
-/* ================= Calendar / notifications ================= */
-
 .datemenu-popover {
   border-radius: 28px; }
 
-/* no divider between notifications and calendar */
 .message-list,
 .message-list:ltr,
 .message-list:rtl {
   border-width: 0; }
 
-/* calendar grid */
 .calendar .calendar-day:hover {
   background-color: rgba(255, 255, 255, 0.07); }
 .calendar .calendar-day-heading {
@@ -22,7 +18,6 @@
   .calendar .calendar-month-header .pager-button:hover {
     background-color: rgba(255, 255, 255, 0.07); }
 
-/* cards: notifications, events, world clocks, weather */
 .message, .events-button, .world-clocks-button, .weather-button {
   background-color: #222226;
   border-radius: 16px; }
@@ -43,7 +38,6 @@
 .message .message-header {
   color: rgba(255, 255, 255, 0.55); }
 
-/* small round buttons on cards */
 .message .message-header .message-expand-button,
 .message .message-header .message-close-button,
 .message-notification-group .message-collapse-button {
@@ -53,7 +47,6 @@
   .message-notification-group .message-collapse-button:hover {
     background-color: rgba(255, 255, 255, 0.14); }
 
-/* "Clear" button & bottom controls */
 .message-list-controls .message-list-clear-button {
   background-color: rgba(255, 255, 255, 0.06); }
   .message-list-controls .message-list-clear-button:hover {

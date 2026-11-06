@@ -1,33 +1,15 @@
-// The "update available" banner at the top of every preferences page.
-//
-// `make install` writes source.json next to the loader: the git clone it was
-// installed from and the commit. When the preferences open, this fetches
-// that clone's upstream branch (GitHub) and, if it has commits the installed
-// build doesn't, shows a banner whose button pulls them and runs
-// `make install`, which reloads the running extension. Installs that did not
-// come from a git clone (no source.json) never show it.
-
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
 
-// Files that the running shell only reads at login (see loader/common.js).
 const LOGIN_FILES = ['loader', 'src/metadata.json'];
 
-/**
- * Runs a command and returns its stdout. Throws with its stderr on failure.
- *
- * @param {string[]} argv - the command
- * @returns {Promise<string>}
- */
 async function run(argv) {
     const launcher = new Gio.SubprocessLauncher({
         flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
     });
-    // Never wait for a password prompt nobody can see, and keep git's
-    // messages in English for the banner.
     launcher.setenv('GIT_TERMINAL_PROMPT', '0', true);
     launcher.setenv('LC_ALL', 'C', true);
     const proc = launcher.spawnv(argv);
@@ -47,17 +29,10 @@ function readSource(extensionPath) {
         if (source.repo && /^[0-9a-f]{40}$/.test(source.commit))
             return source;
     } catch {
-        // Not installed from a git clone.
     }
     return null;
 }
 
-/**
- * Adds the update banner to the pages and starts the check.
- *
- * @param {Adw.PreferencesPage[]} pages - the window's pages
- * @param {object} ctx - {window, path}
- */
 export function addUpdateBanner(pages, {window, path}) {
     const source = readSource(path);
     if (!source)
@@ -68,7 +43,6 @@ export function addUpdateBanner(pages, {window, path}) {
     let onClick = null;
     banners.forEach(b => b.connect('button-clicked', () => onClick?.()));
 
-    // Every page shows the same banner.
     const show = (title, buttonLabel = '', click = null) => {
         onClick = click;
         for (const b of banners) {
@@ -102,6 +76,5 @@ export function addUpdateBanner(pages, {window, path}) {
                 'Update', update);
         }
     };
-    // Offline or GitHub unreachable: no banner, nothing to do.
     check().catch(e => console.log(`jh-fixes: update check failed: ${e.message}`));
 }

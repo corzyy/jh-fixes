@@ -1,22 +1,3 @@
-// Per-application volume sliders in the Quick Settings "Sound Output" menu.
-//
-// Every app playing sound has a Gvc.MixerSinkInput stream on the shared
-// MixerControl (ui/status/volume.js, getMixerControl). Each one gets a row
-// with the app's icon (click to mute), its name and a slider, in a section
-// below the device list.
-//
-// GNOME only enables the menu arrow with more than one output device, and
-// OutputDevices (soundDevices.js) recomputes that after hiding devices. Rather
-// than chain onto those, this watches menu-enabled and turns it back on
-// while there are apps to show; once they are gone, slider._sync() lets the
-// others decide again.
-//
-// Streams rarely carry a usable app id (PipeWire only passes on
-// application.id, which most apps never set) and their icon names are often
-// generic, so findApp() matches them to an installed app instead.
-//
-// No GObject subclasses here, so nothing needs a per-load GTypeName.
-
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
@@ -33,8 +14,6 @@ import {Slider} from 'resource:///org/gnome/shell/ui/slider.js';
 import {whenReady} from '../../lib/shell.js';
 import {SettingTweak} from '../../lib/tweak.js';
 
-// Mixer apps show up as playing while they show levels; leave them out, as
-// GNOME does for the input slider.
 const SKIPPED_APPS = new Set([
     'org.gnome.VolumeControl',
     'org.PulseAudio.pavucontrol',
@@ -44,19 +23,10 @@ const SKIPPED_APPS = new Set([
 const FALLBACK_ICON = 'application-x-executable';
 const ICON_SIZE = 24;
 
-/**
- * @param {string} text - an app name, id or binary
- * @returns {string} lower case letters and digits only, for loose matching
- */
 function normalize(text) {
     return (text ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-/**
- * @param {Shell.App} app - an app
- * @returns {string[]} normalized names it can go by: its name, the last part
- *   of its id (org.vinegarhq.Sober -> sober) and its executable
- */
 function appNames(app) {
     const info = app.get_app_info();
     const id = app.get_id()?.replace(/\.desktop$/, '') ?? '';
@@ -69,14 +39,6 @@ function appNames(app) {
     ].map(normalize).filter(Boolean);
 }
 
-/**
- * Finds the installed app behind a playback stream: by its app id if it has
- * one, then by its app name against running apps (most likely the one
- * playing), then against all installed apps.
- *
- * @param {Gvc.MixerStream} stream - a sink input
- * @returns {Shell.App|null}
- */
 function findApp(stream) {
     const appSystem = Shell.AppSystem.get_default();
     const id = stream.application_id;
@@ -99,9 +61,6 @@ function findApp(stream) {
         null;
 }
 
-// findApp() walks every installed app, and players change a stream's
-// description with each track or tab, so answers are kept per id and name
-// until the installed apps change.
 const appCache = new Map();
 
 function findAppCached(stream) {
@@ -111,7 +70,7 @@ function findAppCached(stream) {
     return appCache.get(key);
 }
 
-const UNMUTE_DEFAULT_VOLUME = 0.25;   // same as GNOME's own sliders
+const UNMUTE_DEFAULT_VOLUME = 0.25;
 
 export class AppVolumes extends SettingTweak {
     static KEY = 'sound-app-volumes';
@@ -133,15 +92,13 @@ export class AppVolumes extends SettingTweak {
     _attach(slider) {
         this._slider = slider;
         this._control = slider._control;
-        this._rows = new Map();   // stream id -> {item, stream}
+        this._rows = new Map();
         Shell.AppSystem.get_default().connectObject('installed-changed',
             () => appCache.clear(), this);
 
         this._section = new PopupMenu.PopupMenuSection();
         this._separator = new PopupMenu.PopupSeparatorMenuItem('Applications');
         this._section.addMenuItem(this._separator);
-        // Item 0 is GNOME's device section; go right after it, above the
-        // separator and "Sound Settings".
         slider.menu.addMenuItem(this._section, 1);
 
         this._control.connectObject(
@@ -236,7 +193,6 @@ export class AppVolumes extends SettingTweak {
         box.add_child(slider);
         item.add_child(box);
 
-        // Follow GNOME's "Over-Amplification" setting like the main slider.
         this._slider.slider.bind_property('maximum-value',
             slider, 'maximum-value', GObject.BindingFlags.SYNC_CREATE);
 
@@ -301,7 +257,7 @@ export class AppVolumes extends SettingTweak {
         if (this._rows.size > 0)
             this._syncMenuEnabled();
         else
-            this._slider._sync();   // let GNOME and OutputDevices decide again
+            this._slider._sync();
     }
 
     _syncMenuEnabled() {

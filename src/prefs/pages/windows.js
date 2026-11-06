@@ -1,5 +1,3 @@
-// Windows section of the Shell page. Shell side: features/windows/.
-
 import {group, shortcut, toggle} from '../ui/build.js';
 
 export default {
