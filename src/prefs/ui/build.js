@@ -160,6 +160,8 @@ export function buildRow(d, ctx) {
     return row;
 }
 
+
+
 const ROW_BUILDERS = {
     toggle(d, ctx) {
         const {settings} = ctx;

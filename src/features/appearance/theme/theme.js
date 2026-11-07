@@ -3,13 +3,13 @@ import GLib from 'gi://GLib';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {FIXED_PARTS, OPTIONS, STYLE_PARTS, buildCss} from './build.js';
+import {FIXED_PARTS, OPTIONS, PALETTES, STYLE_PARTS, buildCss} from './build.js';
 
 const KEY = 'shell-theme';
 const optionKey = name => `shell-theme-${name}`;
 const KEYS = [
     KEY,
-    'shell-theme-darkness',
+    'shell-theme-palette',
     'shell-theme-disabled-styles',
     ...Object.keys(OPTIONS).map(optionKey),
 ];
@@ -60,11 +60,15 @@ export class ShellTheme {
     enable() {
         for (const key of KEYS)
             this._settings.connectObject(`changed::${key}`, () => this._queueSync(), this);
+        this._settings.connectObject(
+            'changed::shell-theme-palette', () => this._applyAccent(),
+            `changed::${KEY}`, () => this._applyAccent(), this);
         Main.extensionManager.connectObject('extension-state-changed', () => {
             if (this._settings.get_boolean(KEY) && currentStylesheet() !== OUTPUT)
                 this._queueSync();
         }, this);
         this._sync();
+        this._applyAccent();
     }
 
     disable() {
@@ -74,6 +78,15 @@ export class ShellTheme {
         this._settings.disconnectObject(this);
         Main.extensionManager.disconnectObject(this);
         this._remove();
+    }
+
+    _applyAccent() {
+        const accent = PALETTES[this._settings.get_string('shell-theme-palette')]?.accent;
+        if (!accent || !this._settings.get_boolean(KEY))
+            return;
+        const iface = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
+        if (iface.get_string('accent-color') !== accent)
+            iface.set_string('accent-color', accent);
     }
 
     _queueSync() {
@@ -101,7 +114,7 @@ export class ShellTheme {
     _apply() {
         const disabled = this._settings.get_strv('shell-theme-disabled-styles');
         const inputs = {
-            darkness: this._settings.get_int('shell-theme-darkness'),
+            palette: this._settings.get_string('shell-theme-palette'),
             parts: STYLE_PARTS.filter(id => FIXED_PARTS.includes(id) || !disabled.includes(id)),
             options: this._readOptions(),
         };
@@ -115,7 +128,7 @@ export class ShellTheme {
 
         const css = buildCss({
             stockCss: readStock(),
-            darkness: inputs.darkness,
+            palette: inputs.palette,
             parts: new Map(inputs.parts.map(id => [id, readPart(id)])),
             options: inputs.options,
         });

@@ -35,6 +35,39 @@ const RGBA_GREYS = {
     '34, 34, 38': '14, 14, 16',
 };
 
+const FG = '#fafafb';
+const FG_RGBA = '250, 250, 251';
+const PART_FG = '#f4f4f5';
+
+const CATPPUCCIN_MOCHA = [
+    ['#0e0e10', '#11111b'],
+    ['#151517', '#181825'],
+    ['#18181b', '#1e1e2e'],
+    ['#222225', '#313244'],
+    ['#2c2c30', '#45475a'],
+    ['#3c3c42', '#585b70'],
+];
+
+const OSAKA_JADE = [
+    ['#0e0e10', '#090f0d'],
+    ['#151517', '#0c1512'],
+    ['#18181b', '#111c18'],
+    ['#222225', '#23372b'],
+    ['#2c2c30', '#32473b'],
+    ['#3c3c42', '#53685b'],
+];
+
+export const ACCENT_HEX = {
+    blue: '#3584e4', teal: '#2190a4', green: '#3a944a', yellow: '#c88800', orange: '#ed5b00',
+    red: '#e62d42', pink: '#d56199', purple: '#9141ac', slate: '#6f8396',
+};
+
+export const PALETTES = {
+    darker: {},
+    catppuccin: {anchors: CATPPUCCIN_MOCHA, fg: '#cdd6f4', accent: 'purple'},
+    'osaka-jade': {anchors: OSAKA_JADE, fg: '#c1c497', accent: 'green'},
+};
+
 export const STYLE_PARTS = [
     'sliders',
     'switches',
@@ -79,7 +112,8 @@ const GNOME_DASH_CSS = [
 ].join('\n') + '\n';
 
 const GREY_RE = new RegExp(
-    `${Object.keys(GREYS).join('|')}|rgba\\((${Object.keys(RGBA_GREYS).join('|')}),`, 'g');
+    `${Object.keys(GREYS).join('|')}|${FG}|rgba\\((${Object.keys(RGBA_GREYS).join('|')}|${FG_RGBA}),`, 'g');
+const PART_GREY_RE = /#[0-9a-f]{6}\b/gi;
 
 export const PANEL_SOLID_CLASS = 'jh-fixes-panel-solid';
 
@@ -89,6 +123,42 @@ const parseTriple = s => s.split(',').map(Number);
 
 const mix = (from, to, t) => from.map((c, i) =>
     Math.min(255, Math.max(0, Math.round(c + (to[i] - c) * t))));
+
+const lightness = rgb => (rgb[0] + rgb[1] + rgb[2]) / 3;
+
+function mapThroughAnchors(rgb, anchors) {
+    const points = anchors.map(([from, to]) => [lightness(hexToRgb(from)), hexToRgb(to)]);
+    const l = lightness(rgb);
+    let i = points.findIndex(([at]) => at >= l);
+    if (i <= 0)
+        i = i === 0 ? 1 : points.length - 1;
+    const [[a, ra], [b, rb]] = [points[i - 1], points[i]];
+    return mix(ra, rb, (l - a) / (b - a));
+}
+
+function paletteTargets(name) {
+    const palette = PALETTES[name] ?? PALETTES.darker;
+    const {anchors} = palette;
+    const toPalette = rgb => (anchors ? mapThroughAnchors(rgb, anchors) : rgb);
+    const greys = {};
+    for (const [from, to] of Object.entries(GREYS))
+        greys[from] = toPalette(hexToRgb(to));
+    const rgbaGreys = {};
+    for (const [from, to] of Object.entries(RGBA_GREYS))
+        rgbaGreys[from] = toPalette(parseTriple(to));
+    return {
+        greys,
+        rgbaGreys,
+        fg: palette.fg ? hexToRgb(palette.fg) : null,
+        recolourPart: anchors
+            ? css => css.replace(PART_GREY_RE, m => {
+                const rgb = hexToRgb(m);
+                const neutral = Math.max(...rgb) - Math.min(...rgb) <= 8 && lightness(rgb) < 64;
+                return neutral ? rgbToHex(toPalette(rgb)) : m;
+            })
+            : css => css,
+    };
+}
 
 function optionsCss(options, enabled, greys) {
     const o = {...OPTIONS, ...options};
@@ -150,20 +220,47 @@ function optionsCss(options, enabled, greys) {
     return `\n${rules.join('\n')}\n`;
 }
 
-export function buildCss({stockCss, darkness, parts, options = {}}) {
+export function paletteColours(name) {
+    const {greys, fg} = paletteTargets(name);
+    const hex = from => rgbToHex(greys[from]);
+    return {
+        panel: hex('#222226'),
+        menu: hex(MENU_GREY),
+        surface: hex('#424247'),
+        overlay: hex('#606067'),
+        fg: rgbToHex(fg ?? hexToRgb(FG)),
+        accent: ACCENT_HEX[PALETTES[name]?.accent] ?? null,
+    };
+}
+
+export function buildCss({stockCss, darkness = 100, palette = 'darker', parts, options = {}}) {
     const t = darkness / 100;
+    const target = paletteTargets(palette);
 
     const greys = {};
-    for (const [from, to] of Object.entries(GREYS))
-        greys[from] = rgbToHex(mix(hexToRgb(from), hexToRgb(to), t));
-
-    if (parts.has('dash')) {
-        const css = options['dash-style'] === 'gnome' ? GNOME_DASH_CSS : parts.get('dash');
-        parts = new Map(parts).set('dash', css.replaceAll('@dash-bg@', dashBackground(greys)));
-    }
+    for (const from of Object.keys(GREYS))
+        greys[from] = rgbToHex(mix(hexToRgb(from), target.greys[from], t));
     const rgbaGreys = {};
-    for (const [from, to] of Object.entries(RGBA_GREYS))
-        rgbaGreys[from] = mix(parseTriple(from), parseTriple(to), t).join(', ');
+    for (const from of Object.keys(RGBA_GREYS))
+        rgbaGreys[from] = mix(parseTriple(from), target.rgbaGreys[from], t).join(', ');
+
+    const fg = target.fg && mix(hexToRgb(FG), target.fg, t);
+    if (fg) {
+        greys[FG] = rgbToHex(fg);
+        rgbaGreys[FG_RGBA] = fg.join(', ');
+    } else {
+        greys[FG] = FG;
+        rgbaGreys[FG_RGBA] = FG_RGBA;
+    }
+
+    parts = new Map([...parts].map(([id, css]) => {
+        if (id === 'dash' && options['dash-style'] === 'gnome')
+            css = GNOME_DASH_CSS;
+        css = target.recolourPart(css);
+        if (fg)
+            css = css.replaceAll(PART_FG, rgbToHex(mix(hexToRgb(PART_FG), target.fg, t)));
+        return [id, id === 'dash' ? css.replaceAll('@dash-bg@', dashBackground(greys)) : css];
+    }));
 
     const recoloured = stockCss.replace(GREY_RE,
         (m, rgb) => (rgb ? `rgba(${rgbaGreys[rgb]},` : greys[m]));

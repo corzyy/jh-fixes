@@ -17,6 +17,27 @@
       <description>"default" is GNOME's own clock, which follows the Date &amp; Time settings; "time" leaves out the date and weekday.</description>
     </key>
 
+    <key name="panel-layout" type="a{sas}">
+      <default>{}</default>
+      <summary>Where the top bar items go</summary>
+      <description>"left", "center" and "right" mapped to the panel roles in that box, in order (see src/lib/panelCatalog.js). Empty keeps GNOME's layout. Items not listed go where GNOME or their extension would put them. Only used in the normal session, not on the lock screen.</description>
+    </key>
+    <key name="hidden-panel-items" type="as">
+      <default>[]</default>
+      <summary>Hidden top bar items</summary>
+      <description>Panel roles left out of the top bar. The Activities button is hidden with panel-activities-button instead, so "activities" is ignored here.</description>
+    </key>
+    <key name="known-panel-items" type="a{sas}">
+      <default>{}</default>
+      <summary>Other extensions' top bar items seen so far</summary>
+      <description>Panel role mapped to [name, icon name, box it was added to]. Filled in by the extension so the preferences can list them.</description>
+    </key>
+    <key name="present-panel-items" type="as">
+      <default>[]</default>
+      <summary>Top bar items GNOME shows right now</summary>
+      <description>Filled in by the extension for the preview in the preferences.</description>
+    </key>
+
     <key name="hidden-quick-settings" type="as">
       <default>[]</default>
       <summary>Hidden Quick Settings items</summary>
@@ -185,11 +206,15 @@
       <summary>Use the Umbra shell theme</summary>
       <description>Built from GNOME's own dark stylesheet, replaces the User Themes extension.</description>
     </key>
-    <key name="shell-theme-darkness" type="i">
-      <range min="0" max="100"/>
-      <default>100</default>
-      <summary>How dark the theme's greys are, in percent</summary>
-      <description>0 keeps GNOME's own dark greys, 100 uses Umbra's darker ones.</description>
+    <key name="shell-theme-palette" type="s">
+      <choices>
+        <choice value="darker"/>
+        <choice value="catppuccin"/>
+        <choice value="osaka-jade"/>
+      </choices>
+      <default>'darker'</default>
+      <summary>Colour theme of the shell theme</summary>
+      <description>"darker" uses Umbra's near-black greys, "catppuccin" the Catppuccin Mocha palette, "osaka-jade" Omarchy's Osaka Jade. GNOME's accent colour follows the theme's while the shell theme is on (Darker keeps it). See PALETTES in src/features/appearance/theme/build.js.</description>
     </key>
     <key name="shell-theme-disabled-styles" type="as">
       <default>[]</default>
