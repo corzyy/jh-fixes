@@ -18,6 +18,9 @@ export default {
         group('Extra Controls', [
             toggle('ddc-brightness', 'Brightness of external monitors'),
             toggle('sound-app-volumes', 'Volume for each app'),
+            toggle('quick-settings-systray', 'System tray', {
+                subtitle: 'AppIndicator and StatusNotifierItem icons in the Background Apps menu',
+            }),
             toggle('quick-settings-prefs-button', 'Button for these settings'),
         ]),
         group('Sound Menus', [

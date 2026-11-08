@@ -69,6 +69,10 @@
       <default>true</default>
       <summary>Show a jh-fixes Settings button in Quick Settings</summary>
     </key>
+    <key name="quick-settings-systray" type="b">
+      <default>false</default>
+      <summary>Show system tray icons in the Background Apps menu</summary>
+    </key>
     <key name="ddc-brightness" type="b">
       <default>false</default>
       <summary>Brightness slider for external monitors</summary>

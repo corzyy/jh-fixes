@@ -21,6 +21,7 @@ const FEATURES = [
     PanelLayout,
     lazyFeature('ddc-brightness', async () => (await import('./features/quickSettings/ddcBrightness.js')).DdcBrightness),
     QuickSettingsItems,
+    lazyFeature('quick-settings-systray', async () => (await import('./features/quickSettings/systemTray.js')).SystemTray),
     PrefsButton,
     lazyFeature('sound-app-volumes', async () => (await import('./features/quickSettings/appVolumes.js')).AppVolumes),
     OutputDevices,
