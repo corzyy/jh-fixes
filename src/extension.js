@@ -9,12 +9,15 @@ import {InputDevices, OutputDevices} from './features/quickSettings/soundDevices
 import {DashIconSize, DashShowAppsButton, DashVisible} from './features/dock/dash.js';
 import {AppGridLayout} from './features/overview/appGrid.js';
 import {WindowTitles} from './features/overview/windowTitles.js';
+import {OverviewAtStartup} from './features/overview/startup.js';
 import {ShowDesktop} from './features/windows/showDesktop.js';
 import {AltTabSwitcher} from './features/altTab/altTab.js';
 import {AnimationDuration} from './features/appearance/animations.js';
+import {OsdLayout} from './features/appearance/osd.js';
 import {ShellTheme} from './features/appearance/theme/theme.js';
 
 const FEATURES = [
+    OverviewAtStartup,
     ActivitiesButton,
     ClockStyle,
     DynamicPanel,
@@ -34,8 +37,10 @@ const FEATURES = [
     lazyFeature('window-corners', async () => (await import('./features/windows/roundedCorners.js')).RoundedCorners),
     ShowDesktop,
     AltTabSwitcher,
+    lazyFeature('launcher', async () => (await import('./features/launcher/launcher.js')).Launcher),
     ShellTheme,
     AnimationDuration,
+    OsdLayout,
 ];
 
 export default class JhFixesExtension extends Extension {

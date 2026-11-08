@@ -18,9 +18,28 @@ export default {
         group('Styled Areas',
             STYLES.map((style, i) => custom(ctx => styleRow(style, ctx), i === 0 ? STYLE_KEYS : [])),
             {requires: 'shell-theme'}),
+        group('Volume & Brightness Popups', [
+            choice('osd-position', 'Position', [
+                ['top-left', 'Top left'],
+                ['top', 'Top'],
+                ['top-right', 'Top right'],
+                ['left', 'Left'],
+                ['center', 'Centre'],
+                ['right', 'Right'],
+                ['bottom-left', 'Bottom left'],
+                ['bottom', 'Bottom'],
+                ['bottom-right', 'Bottom right'],
+            ]),
+            choice('osd-size', 'Size', [50, 75, 100, 125, 150, 200],
+                {format: v => `${v} %`}),
+        ]),
         group('Motion', [
             choice('animation-duration', 'Animation duration', [25, 50, 75, 100, 150, 200],
                 {format: v => `${v} %`}),
+        ]),
+        group('Updates', [
+            toggle('update-banner', 'Update banner',
+                {subtitle: 'Check GitHub for a newer version when the preferences open'}),
         ]),
     ],
 };

@@ -124,6 +124,10 @@
       <default>true</default>
       <summary>Show window titles in the Overview</summary>
     </key>
+    <key name="overview-at-startup" type="b">
+      <default>true</default>
+      <summary>Open the Overview at login</summary>
+    </key>
     <key name="app-grid-columns" type="i">
       <range min="0" max="12"/>
       <default>0</default>
@@ -170,6 +174,189 @@
       <range min="0" max="1000"/>
       <default>150</default>
       <summary>Alt+Tab popup delay, in milliseconds</summary>
+    </key>
+
+    <key name="launcher" type="b">
+      <default>false</default>
+      <summary>Raycast-style search launcher</summary>
+    </key>
+    <key name="launcher-shortcut" type="as">
+      <default><![CDATA[['<Super>r']]]></default>
+      <summary>Shortcut that opens the launcher</summary>
+    </key>
+    <key name="launcher-overview-search" type="b">
+      <default>false</default>
+      <summary>Typing in the Overview opens the launcher instead of GNOME search</summary>
+    </key>
+    <key name="launcher-width" type="i">
+      <range min="480" max="1200"/>
+      <default>700</default>
+      <summary>Launcher width, in pixels</summary>
+    </key>
+    <key name="launcher-position" type="s">
+      <choices>
+        <choice value="top"/>
+        <choice value="center"/>
+      </choices>
+      <default>'top'</default>
+      <summary>Where the launcher opens</summary>
+    </key>
+    <key name="launcher-monitor" type="s">
+      <choices>
+        <choice value="focused"/>
+        <choice value="pointer"/>
+        <choice value="primary"/>
+      </choices>
+      <default>'focused'</default>
+      <summary>Which monitor the launcher opens on</summary>
+    </key>
+    <key name="launcher-visible-rows" type="i">
+      <range min="3" max="15"/>
+      <default>8</default>
+      <summary>Result rows visible before scrolling</summary>
+    </key>
+    <key name="launcher-max-results" type="i">
+      <range min="1" max="20"/>
+      <default>5</default>
+      <summary>Results per section</summary>
+    </key>
+    <key name="launcher-group-results" type="b">
+      <default>true</default>
+      <summary>Group launcher results by type</summary>
+    </key>
+    <key name="launcher-icon-size" type="i">
+      <range min="16" max="48"/>
+      <default>32</default>
+      <summary>Launcher result icon size, in pixels</summary>
+    </key>
+    <key name="launcher-font-size" type="i">
+      <range min="9" max="16"/>
+      <default>11</default>
+      <summary>Launcher text size, in points</summary>
+    </key>
+    <key name="launcher-opacity" type="i">
+      <range min="50" max="100"/>
+      <default>100</default>
+      <summary>Launcher background opacity, in percent</summary>
+    </key>
+    <key name="launcher-dim" type="i">
+      <range min="0" max="80"/>
+      <default>25</default>
+      <summary>How much the launcher dims the screen, in percent</summary>
+    </key>
+    <key name="launcher-show-subtitles" type="b">
+      <default>true</default>
+      <summary>Show a second line under launcher results</summary>
+    </key>
+    <key name="launcher-show-kind" type="b">
+      <default>true</default>
+      <summary>Show the result type on the right of launcher results</summary>
+    </key>
+    <key name="launcher-show-footer" type="b">
+      <default>true</default>
+      <summary>Show the action bar at the bottom of the launcher</summary>
+    </key>
+    <key name="launcher-escape" type="s">
+      <choices>
+        <choice value="close"/>
+        <choice value="clear"/>
+      </choices>
+      <default>'close'</default>
+      <summary>What Escape does in the launcher</summary>
+    </key>
+    <key name="launcher-remember-query" type="b">
+      <default>false</default>
+      <summary>Keep the last search when the launcher reopens</summary>
+    </key>
+    <key name="launcher-empty-state" type="s">
+      <choices>
+        <choice value="recent"/>
+        <choice value="frequent"/>
+        <choice value="none"/>
+      </choices>
+      <default>'recent'</default>
+      <summary>What the launcher shows before typing</summary>
+    </key>
+    <key name="launcher-remember-history" type="b">
+      <default>true</default>
+      <summary>Remember what was opened from the launcher</summary>
+    </key>
+    <key name="launcher-history" type="as">
+      <default>[]</default>
+      <summary>Things recently opened from the launcher</summary>
+    </key>
+    <key name="launcher-rank-by-usage" type="b">
+      <default>true</default>
+      <summary>Rank often used apps higher</summary>
+    </key>
+    <key name="launcher-apps" type="b">
+      <default>true</default>
+      <summary>Search applications</summary>
+    </key>
+    <key name="launcher-windows" type="b">
+      <default>true</default>
+      <summary>Search open windows</summary>
+    </key>
+    <key name="launcher-window-scope" type="s">
+      <choices>
+        <choice value="all"/>
+        <choice value="workspace"/>
+      </choices>
+      <default>'all'</default>
+      <summary>Which windows the launcher searches</summary>
+    </key>
+    <key name="launcher-settings-panels" type="b">
+      <default>true</default>
+      <summary>Search Settings panels</summary>
+    </key>
+    <key name="launcher-system-actions" type="b">
+      <default>true</default>
+      <summary>Search system actions like lock and power off</summary>
+    </key>
+    <key name="launcher-files" type="b">
+      <default>true</default>
+      <summary>Search recently used files</summary>
+    </key>
+    <key name="launcher-calculator" type="b">
+      <default>true</default>
+      <summary>Evaluate maths in the launcher</summary>
+    </key>
+    <key name="launcher-commands" type="b">
+      <default>true</default>
+      <summary>Run shell commands from the launcher</summary>
+    </key>
+    <key name="launcher-command-prefix" type="s">
+      <default>'&gt;'</default>
+      <summary>Prefix that switches the launcher to command mode</summary>
+    </key>
+    <key name="launcher-web-search" type="b">
+      <default>true</default>
+      <summary>Offer a web search in the launcher</summary>
+    </key>
+    <key name="launcher-web-search-engine" type="s">
+      <choices>
+        <choice value="duckduckgo"/>
+        <choice value="google"/>
+        <choice value="bing"/>
+        <choice value="startpage"/>
+        <choice value="brave"/>
+        <choice value="ecosia"/>
+        <choice value="custom"/>
+      </choices>
+      <default>'duckduckgo'</default>
+      <summary>Launcher web search engine</summary>
+    </key>
+    <key name="launcher-web-search-url" type="s">
+      <default>''</default>
+      <summary>Custom web search address, %s is replaced by the search</summary>
+    </key>
+    <key name="launcher-web-search-when" type="s">
+      <choices>
+        <choice value="always"/>
+        <choice value="no-results"/>
+      </choices>
+      <default>'always'</default>
+      <summary>When the launcher offers a web search</summary>
     </key>
 
     <key name="shell-theme" type="b">
@@ -239,6 +426,30 @@
       <range min="10" max="400"/>
       <default>100</default>
       <summary>Animation duration in percent</summary>
+    </key>
+    <key name="osd-position" type="s">
+      <choices>
+        <choice value="top-left"/>
+        <choice value="top"/>
+        <choice value="top-right"/>
+        <choice value="left"/>
+        <choice value="center"/>
+        <choice value="right"/>
+        <choice value="bottom-left"/>
+        <choice value="bottom"/>
+        <choice value="bottom-right"/>
+      </choices>
+      <default>'bottom'</default>
+      <summary>Where volume and brightness popups appear</summary>
+    </key>
+    <key name="osd-size" type="i">
+      <range min="50" max="200"/>
+      <default>100</default>
+      <summary>Size of volume and brightness popups, in percent</summary>
+    </key>
+    <key name="update-banner" type="b">
+      <default>true</default>
+      <summary>Show a banner in the preferences when an update is available</summary>
     </key>
   </schema>
 </schemalist>

@@ -16,6 +16,6 @@ export default class JhFixesPreferences extends ExtensionPreferences {
         const ctx = {settings, window};
         const pages = [shell, quickSettings, appearance].map(spec => buildPage(spec, ctx));
         pages.forEach(page => window.add(page));
-        addUpdateBanner(pages, {window, path: this.path});
+        addUpdateBanner(pages, {window, path: this.path, settings});
     }
 }

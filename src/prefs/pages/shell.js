@@ -1,4 +1,5 @@
-import {choice, custom, group, number, section, shortcut, toggle} from '../ui/build.js';
+import {choice, custom, group, number, section, shortcut, slider, text, toggle, toggles} from '../ui/build.js';
+import {launcherHistory} from '../editors/launcher.js';
 import {panelLayout} from '../editors/panelLayout.js';
 import {KEYS as PANEL_KEYS} from '../../lib/panelCatalog.js';
 
@@ -52,6 +53,10 @@ const overview = {
         group('Windows', [
             toggle('overview-window-titles', 'Window names'),
         ]),
+        group('Login', [
+            toggle('overview-at-startup', 'Open the Overview at login',
+                {subtitle: 'Off: start on the desktop instead'}),
+        ]),
         group('App Grid', [
             choice('app-grid-columns', 'Columns per page',
                 [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], {format: auto}),
@@ -91,8 +96,102 @@ const altTab = {
     ],
 };
 
+const launcher = {
+    title: 'Launcher',
+    icon: 'system-search-symbolic',
+    groups: [
+        group('Launcher', [
+            toggle('launcher', 'Search launcher', {
+                subtitle: 'A Raycast-style search box for apps, windows, files and more',
+                options: [
+                    shortcut('launcher-shortcut', 'Shortcut'),
+                    toggle('launcher-overview-search', 'Replace the Overview search',
+                        {subtitle: 'Typing in the Overview opens the launcher instead of GNOME search'}),
+                ],
+            }),
+        ]),
+        group('Search In', [
+            toggle('launcher-apps', 'Applications', {
+                options: [toggle('launcher-rank-by-usage', 'Rank often used apps higher')],
+            }),
+            toggle('launcher-windows', 'Open windows', {
+                options: [toggles('launcher-window-scope', 'Windows from',
+                    [['all', 'All workspaces'], ['workspace', 'This workspace']])],
+            }),
+            toggle('launcher-settings-panels', 'Settings panels'),
+            toggle('launcher-system-actions', 'System actions',
+                {subtitle: 'Lock, log out, suspend, restart, power off, screenshot'}),
+            toggle('launcher-files', 'Recent files'),
+            toggle('launcher-calculator', 'Calculator',
+                {subtitle: 'Type maths like 2^10 / 4; Enter copies the result'}),
+            toggle('launcher-commands', 'Shell commands', {
+                subtitle: 'Start the search with the prefix to run a command',
+                options: [text('launcher-command-prefix', 'Command prefix')],
+            }),
+            toggle('launcher-web-search', 'Web search', {
+                options: [
+                    choice('launcher-web-search-engine', 'Search engine', [
+                        ['duckduckgo', 'DuckDuckGo'],
+                        ['google', 'Google'],
+                        ['bing', 'Bing'],
+                        ['startpage', 'Startpage'],
+                        ['brave', 'Brave Search'],
+                        ['ecosia', 'Ecosia'],
+                        ['custom', 'Custom'],
+                    ]),
+                    text('launcher-web-search-url', 'Custom address (%s = search)',
+                        {showIf: {key: 'launcher-web-search-engine', is: 'custom'}}),
+                    toggles('launcher-web-search-when', 'Offer it',
+                        [['always', 'Always'], ['no-results', 'Only without results']]),
+                ],
+            }),
+        ], {requires: 'launcher'}),
+        group('Results', [
+            toggle('launcher-group-results', 'Group by type',
+                {subtitle: 'Off: one list ranked by match'}),
+            number('launcher-max-results', 'Results per type', {
+                showIf: 'launcher-group-results',
+            }),
+            number('launcher-visible-rows', 'Rows before scrolling'),
+            choice('launcher-empty-state', 'Before typing, show', [
+                ['recent', 'Recently opened'],
+                ['frequent', 'Most used apps'],
+                ['none', 'Nothing'],
+            ]),
+            toggle('launcher-remember-history', 'Remember what was opened',
+                {subtitle: 'Ranks those results higher and lists them before typing'}),
+            custom(launcherHistory),
+        ], {requires: 'launcher'}),
+        group('Look', [
+            toggles('launcher-position', 'Position', [['top', 'Upper third'], ['center', 'Centre']]),
+            choice('launcher-monitor', 'Monitor', [
+                ['focused', 'With the focused window'],
+                ['pointer', 'With the pointer'],
+                ['primary', 'Primary'],
+            ]),
+            number('launcher-width', 'Width', {unit: 'px', step: 20}),
+            choice('launcher-icon-size', 'Icon size', [16, 24, 32, 40, 48], {format: v => `${v} px`}),
+            choice('launcher-font-size', 'Text size', [9, 10, 11, 12, 13, 14, 16], {format: v => `${v} pt`}),
+            slider('launcher-opacity', 'Background opacity', {unit: ' %', step: 5, marks: [50, 100]}),
+            slider('launcher-dim', 'Dim the screen', {unit: ' %', step: 5, marks: [0, 25, 80]}),
+            toggle('launcher-show-subtitles', 'Second line with details'),
+            toggle('launcher-show-kind', 'Result type label'),
+            toggle('launcher-show-footer', 'Action bar',
+                {subtitle: 'Shows what Enter and Shift+Enter do'}),
+        ], {requires: 'launcher'}),
+        group('Keyboard', [
+            toggles('launcher-escape', 'Escape', [['close', 'Closes'], ['clear', 'Clears, then closes']]),
+            toggle('launcher-remember-query', 'Keep the last search',
+                {subtitle: 'Reopening shows what you typed last, unless you opened something'}),
+        ], {
+            requires: 'launcher',
+            description: 'Up/Down, Tab or Ctrl+N/P move. Enter opens, Shift+Enter does the second action (new window, close window, show in folder). Alt+1–9 opens a result directly.',
+        }),
+    ],
+};
+
 export default {
     title: 'Shell',
     icon: 'preferences-desktop-display-symbolic',
-    groups: [topBar, dash, overview, windows, altTab].map(section),
+    groups: [topBar, dash, overview, windows, altTab, launcher].map(section),
 };

@@ -11,6 +11,7 @@ export const toggle = row('toggle');
 export const number = row('number');
 export const slider = row('slider');
 export const shortcut = row('shortcut');
+export const text = row('text');
 export const choice = listRow('choice');
 export const toggles = listRow('toggles');
 
@@ -246,6 +247,13 @@ const ROW_BUILDERS = {
         row.tooltip_text = 'Click to change';
         row.connect('activated', () => askForShortcut(row, d.title,
             accel => settings.set_strv(d.key, accel ? [accel] : [])));
+        return row;
+    },
+
+    text(d, {settings}) {
+        const row = new Adw.EntryRow({title: d.title});
+        settings.bind(d.key, row, 'text', 0);
+        addResetButton(row, settings, [d.key]);
         return row;
     },
 

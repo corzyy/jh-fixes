@@ -2,6 +2,8 @@ import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+import {onChanged} from './ui/build.js';
+
 Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
 
 const LOGIN_FILES = ['loader', 'src/metadata.json'];
@@ -32,7 +34,9 @@ function readSource(extensionPath) {
     }
 }
 
-export function addUpdateBanner(pages, {window, path}) {
+const KEY = 'update-banner';
+
+export function addUpdateBanner(pages, {window, path, settings}) {
     const source = readSource(path);
     if (!source)
         return;
@@ -42,7 +46,20 @@ export function addUpdateBanner(pages, {window, path}) {
     let onClick = null;
     banners.forEach(b => b.connect('button-clicked', () => onClick?.()));
 
+    let checked = false;
+    const sync = () => {
+        if (!settings.get_boolean(KEY)) {
+            banners.forEach(b => (b.revealed = false));
+        } else if (!checked) {
+            checked = true;
+            check().catch(e => console.log(`jh-fixes: update check failed: ${e.message}`));
+        }
+    };
+    onChanged(settings, KEY, sync, window);
+
     const show = (title, buttonLabel = '', click = null) => {
+        if (!settings.get_boolean(KEY))
+            return;
         onClick = click;
         for (const b of banners) {
             b.title = title;
@@ -75,5 +92,5 @@ export function addUpdateBanner(pages, {window, path}) {
                 'Update', update);
         }
     };
-    check().catch(e => console.log(`jh-fixes: update check failed: ${e.message}`));
+    sync();
 }
