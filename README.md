@@ -1,7 +1,6 @@
 # jh-fixes
 
-Small personal tweaks for GNOME Shell 51: top bar layout, Quick Settings,
-dash, Overview, window corners, Alt+Tab and a darker shell theme.
+Small personal tweaks for GNOME Shell.
 
 ## Install
 
