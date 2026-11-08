@@ -68,6 +68,66 @@ function buildCss(settings) {
 .jh-launcher-key {
   color: ${rgba(c.fg, 0.7)}; background-color: ${rgba(c.fg, 0.08)};
   border-radius: 5px; padding: 1px 6px; font-size: ${size - 2}pt; }
+
+/* Overview search: GNOME's "Search as Overlay" design */
+.jh-launcher-pill {
+  background-color: ${rgba(c.surface, 0.95)}; color: ${c.fg};
+  border-radius: 999px; padding: 0 14px; spacing: 8px;
+  box-shadow: inset 0 0 0 2px ${accent}; }
+.jh-launcher-pill .jh-launcher-header-icon { color: ${c.fg}; }
+.jh-launcher-pill .jh-launcher-entry { font-size: ${size}pt; }
+.jh-launcher-pill .jh-launcher-mode { border-radius: 999px; }
+.jh-launcher-overlay {
+  background-color: ${rgba(c.surface, opacity)};
+  border: none; border-radius: 28px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45); }
+.jh-launcher-overlay-content { padding: 24px; spacing: 24px; }
+.jh-launcher-tiles { spacing: 6px; }
+.jh-launcher-tile {
+  width: 110px; padding: 10px 0 8px 0; border-radius: 16px; color: ${c.fg}; }
+.jh-launcher-tile-box { spacing: 8px; }
+.jh-launcher-tile-label { font-size: ${size - 1}pt; padding: 0 6px; }
+.jh-launcher-tile:hover { background-color: ${rgba(c.fg, 0.06)}; }
+.jh-launcher-tile.selected, .jh-launcher-tile.selected:hover {
+  background-color: st-transparentize(${accent}, 0.7); }
+.jh-launcher-card {
+  border-radius: 14px; padding: 18px 24px; color: ${c.fg};
+  background-color: ${rgba(c.fg, 0.06)}; }
+.jh-launcher-card:hover { background-color: ${rgba(c.fg, 0.09)}; }
+.jh-launcher-card.selected, .jh-launcher-card.selected:hover {
+  background-color: st-transparentize(${accent}, 0.7); }
+.jh-launcher-card-subtitle { color: ${rgba(c.fg, 0.6)}; font-size: ${size}pt; }
+.jh-launcher-card-title { font-size: ${Math.round(size * 1.9)}pt; font-weight: 800; padding-top: 2px; }
+.jh-launcher-card-icon { color: ${rgba(c.fg, 0.8)}; }
+.jh-launcher-group { spacing: 10px; }
+.jh-launcher-group-header { padding: 0 6px; }
+.jh-launcher-group-title { font-weight: bold; color: ${c.fg}; }
+.jh-launcher-group-button {
+  color: ${c.fg}; background-color: ${rgba(c.fg, 0.08)};
+  border-radius: 10px; padding: 6px 14px; font-weight: 500; }
+.jh-launcher-group-button:hover { background-color: ${rgba(c.fg, 0.13)}; }
+.jh-launcher-group-button:active { background-color: ${rgba(c.fg, 0.18)}; }
+.jh-launcher-boxed-list { border-radius: 14px; background-color: ${rgba(c.fg, 0.06)}; }
+.jh-launcher-boxed-row {
+  padding: 10px 14px 10px 16px; color: ${c.fg};
+  border-top: 1px solid ${rgba(c.fg, 0.07)}; }
+.jh-launcher-boxed-row:first-child { border-top-width: 0; border-radius: 14px 14px 0 0; }
+.jh-launcher-boxed-row:last-child { border-radius: 0 0 14px 14px; }
+.jh-launcher-boxed-row:first-child:last-child { border-radius: 14px; }
+.jh-launcher-boxed-row:hover { background-color: ${rgba(c.fg, 0.04)}; }
+.jh-launcher-boxed-row.selected, .jh-launcher-boxed-row.selected:hover {
+  background-color: st-transparentize(${accent}, 0.75); }
+.jh-launcher-boxed-row .jh-launcher-row-box { spacing: 14px; }
+.jh-launcher-thumb { width: 44px; height: 44px; }
+.jh-launcher-thumb.symbolic {
+  border-radius: 10px; background-color: ${rgba('#000000', 0.25)}; color: ${c.fg}; }
+.jh-launcher-row-action {
+  border-radius: 999px; padding: 8px; color: ${rgba(c.fg, 0.8)}; }
+.jh-launcher-row-action:hover { background-color: ${rgba(c.fg, 0.1)}; color: ${c.fg}; }
+.jh-launcher-status { padding: 28px 0; spacing: 6px; }
+.jh-launcher-status-icon { color: ${rgba(c.fg, 0.4)}; padding-bottom: 12px; }
+.jh-launcher-status-title { font-size: ${Math.round(size * 1.5)}pt; font-weight: 800; }
+.jh-launcher-status-description { color: ${rgba(c.fg, 0.6)}; }
 `;
 }
 

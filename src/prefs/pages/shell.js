@@ -104,7 +104,9 @@ const launcher = {
             toggle('launcher', 'Search launcher', {
                 subtitle: 'A Raycast-style search box for apps, windows, files and more',
                 options: [
-                    shortcut('launcher-shortcut', 'Shortcut'),
+                    toggle('launcher-popup', 'Open with a shortcut',
+                        {subtitle: 'Turn off to use the launcher only from the Overview'}),
+                    shortcut('launcher-shortcut', 'Shortcut', {showIf: 'launcher-popup'}),
                     toggle('launcher-overview-search', 'Replace the Overview search',
                         {subtitle: 'Typing in the Overview opens the launcher instead of GNOME search'}),
                 ],

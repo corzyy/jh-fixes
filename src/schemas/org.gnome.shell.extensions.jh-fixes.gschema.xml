@@ -180,6 +180,10 @@
       <default>false</default>
       <summary>Raycast-style search launcher</summary>
     </key>
+    <key name="launcher-popup" type="b">
+      <default>true</default>
+      <summary>Open the launcher anywhere with a keyboard shortcut</summary>
+    </key>
     <key name="launcher-shortcut" type="as">
       <default><![CDATA[['<Super>r']]]></default>
       <summary>Shortcut that opens the launcher</summary>

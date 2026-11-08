@@ -10,6 +10,7 @@ import {LauncherStyle, STYLE_KEYS} from './style.js';
 
 const SHORTCUT_KEY = 'launcher-shortcut';
 const OVERVIEW_KEY = 'launcher-overview-search';
+const POPUP_KEY = 'launcher-popup';
 
 export class Launcher extends SettingTweak {
     static KEY = 'launcher';
@@ -23,10 +24,9 @@ export class Launcher extends SettingTweak {
         this._styleSignals = STYLE_KEYS.map(key =>
             this._settings.connect(`changed::${key}`, () => this._style.load()));
 
-        Main.wm.addKeybinding(SHORTCUT_KEY, this._settings,
-            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW | Shell.ActionMode.POPUP,
-            () => this._toggle());
+        this._popupSignal = this._settings.connect(`changed::${POPUP_KEY}`,
+            () => this._syncShortcut());
+        this._syncShortcut();
         Main.sessionMode.connectObject('updated', () => {
             if (Main.sessionMode.isLocked)
                 this._popup?.close();
@@ -39,8 +39,9 @@ export class Launcher extends SettingTweak {
 
     _revert() {
         this._settings.disconnect(this._overviewSignal);
+        this._settings.disconnect(this._popupSignal);
         this._unhookOverviewSearch();
-        Main.wm.removeKeybinding(SHORTCUT_KEY);
+        this._removeShortcut();
         Main.sessionMode.disconnectObject(this);
         this._styleSignals.forEach(id => this._settings.disconnect(id));
         this._styleSignals = null;
@@ -48,6 +49,28 @@ export class Launcher extends SettingTweak {
         this._popup = null;
         this._style.unload();
         this._style = null;
+    }
+
+    _syncShortcut() {
+        this._removeShortcut();
+        if (!this._settings.get_boolean(POPUP_KEY)) {
+            // Only close a popup opened by the shortcut; leave Overview search alone.
+            if (this._popup && !this._popupFromOverview)
+                this._popup.close();
+            return;
+        }
+        Main.wm.addKeybinding(SHORTCUT_KEY, this._settings,
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW | Shell.ActionMode.POPUP,
+            () => this._toggle());
+        this._shortcutBound = true;
+    }
+
+    _removeShortcut() {
+        if (!this._shortcutBound)
+            return;
+        Main.wm.removeKeybinding(SHORTCUT_KEY);
+        this._shortcutBound = false;
     }
 
     _syncOverviewSearch() {
@@ -105,6 +128,7 @@ export class Launcher extends SettingTweak {
             initialQuery,
             selectQuery: select,
             closeWhenEmpty: fromOverview,
+            overlay: fromOverview,
             onClosed: p => {
                 this._lastQuery = p.activated ? '' : p.query;
                 if (this._popup === p)
@@ -112,6 +136,7 @@ export class Launcher extends SettingTweak {
             },
         });
         this._popup = popup;
+        this._popupFromOverview = fromOverview;
         try {
             if (!popup.open())
                 this._popup = null;

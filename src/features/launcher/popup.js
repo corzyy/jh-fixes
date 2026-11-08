@@ -7,6 +7,8 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {ensureActorVisibleInScrollView} from 'resource:///org/gnome/shell/misc/animationUtils.js';
 
+import Gio from 'gi://Gio';
+
 import {SOURCES, commandItem, historyItem, webItem} from './sources.js';
 import {fold} from './match.js';
 
@@ -15,6 +17,20 @@ const HISTORY_SIZE = 40;
 const OPEN_TIME = 120;
 
 const VERTICAL = {orientation: Clutter.Orientation.VERTICAL};
+
+// GNOME's "Search as Overlay" mockup (os-mockups/search/search-overlay.png).
+const OVERLAY_OPEN_TIME = 220;
+const OVERLAY_CLOSE_TIME = 140;
+const OVERLAY_GAP = 18;
+const OVERLAY_MARGIN = 32;
+const TILE_ICON = 64;
+const TILE_WIDTH = 116; // tile width + spacing, keep in sync with style.js
+const LIST_ICON = 40;
+const ROW_ACTION_ICONS = {
+    Application: 'window-new-symbolic',
+    File: 'folder-open-symbolic',
+    Window: 'window-close-symbolic',
+};
 
 function readConfig(s) {
     return {
@@ -47,11 +63,14 @@ function key(label) {
 }
 
 export class LauncherPopup {
-    constructor(settings, {initialQuery = '', selectQuery = true, closeWhenEmpty = false, onClosed}) {
+    constructor(settings, {initialQuery = '', selectQuery = true, closeWhenEmpty = false, overlay = false, onClosed}) {
         this._closeWhenEmpty = closeWhenEmpty;
+        this._overlay = overlay;
         this._settings = settings;
         this._onClosed = onClosed;
         this._cfg = readConfig(settings);
+        if (overlay)
+            this._cfg.grouped = true;
         this._sources = SOURCES
             .filter(S => settings.get_boolean(S.key))
             .map(S => ({section: S.section, impl: new S(this._cfg)}));
@@ -88,13 +107,17 @@ export class LauncherPopup {
 
         this._dialog = new St.BoxLayout({
             ...VERTICAL,
-            style_class: 'jh-launcher',
+            style_class: this._overlay ? 'jh-launcher jh-launcher-overlay' : 'jh-launcher',
             width: this._cfg.width * scale,
             reactive: true,
         });
         this._backdrop.add_child(this._dialog);
 
-        const header = new St.BoxLayout({style_class: 'jh-launcher-header'});
+        // Overlay: the entry is a separate pill sitting where the Overview's entry is.
+        const header = new St.BoxLayout({
+            style_class: this._overlay ? 'jh-launcher-pill' : 'jh-launcher-header',
+            reactive: true,
+        });
         header.add_child(new St.Icon({
             icon_name: 'system-search-symbolic',
             icon_size: 18,
@@ -103,7 +126,7 @@ export class LauncherPopup {
         }));
         this._entry = new St.Entry({
             style_class: 'jh-launcher-entry',
-            hint_text: this._hintText(),
+            hint_text: this._overlay ? 'Type to search' : this._hintText(),
             can_focus: true,
             x_expand: true,
             y_align: Clutter.ActorAlign.CENTER,
@@ -115,12 +138,21 @@ export class LauncherPopup {
             y_align: Clutter.ActorAlign.CENTER,
         });
         header.add_child(this._modeChip);
-        this._dialog.add_child(header);
+        this._header = header;
+        if (this._overlay)
+            this._backdrop.add_child(header);
+        else
+            this._dialog.add_child(header);
 
-        this._separator = new St.Widget({style_class: 'jh-launcher-separator'});
-        this._dialog.add_child(this._separator);
+        this._separator = new St.Widget({style_class: 'jh-launcher-separator', visible: !this._overlay});
+        if (!this._overlay)
+            this._dialog.add_child(this._separator);
 
-        this._list = new St.BoxLayout({...VERTICAL, style_class: 'jh-launcher-list', x_expand: true});
+        this._list = new St.BoxLayout({
+            ...VERTICAL,
+            style_class: this._overlay ? 'jh-launcher-overlay-content' : 'jh-launcher-list',
+            x_expand: true,
+        });
         this._scroll = new St.ScrollView({
             style_class: 'jh-launcher-scroll',
             hscrollbar_policy: St.PolicyType.NEVER,
@@ -131,7 +163,7 @@ export class LauncherPopup {
         });
         this._dialog.add_child(this._scroll);
 
-        this._footer = new St.BoxLayout({style_class: 'jh-launcher-footer', visible: this._cfg.footer});
+        this._footer = new St.BoxLayout({style_class: 'jh-launcher-footer', visible: this._cfg.footer && !this._overlay});
         this._status = new St.Label({
             style_class: 'jh-launcher-footer-status',
             x_expand: true,
@@ -203,6 +235,11 @@ export class LauncherPopup {
         this._place();
         this._entry.grab_key_focus();
 
+        if (this._overlay) {
+            this._animateOverlayIn();
+            return true;
+        }
+
         this._dialog.set_pivot_point(0.5, 0.5);
         this._dialog.opacity = 0;
         this._dialog.scale_x = this._dialog.scale_y = 0.97;
@@ -216,6 +253,23 @@ export class LauncherPopup {
         return true;
     }
 
+    _animateOverlayIn() {
+        // The results spring out of the search entry.
+        const mode = Clutter.AnimationMode.EASE_OUT_QUINT;
+        this._backdrop.opacity = 0;
+        this._backdrop.ease({opacity: 255, duration: OPEN_TIME, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        this._dialog.set_pivot_point(0.5, 0);
+        this._dialog.opacity = 0;
+        this._dialog.scale_x = 0.92;
+        this._dialog.scale_y = 0.85;
+        this._dialog.translation_y = -this._header.height / 2;
+        this._dialog.ease({
+            opacity: 255, scale_x: 1, scale_y: 1, translation_y: 0,
+            duration: OVERLAY_OPEN_TIME,
+            mode,
+        });
+    }
+
     close() {
         if (this._closing || this._finished)
             return;
@@ -225,7 +279,25 @@ export class LauncherPopup {
             Main.popModal(this._grab);
             this._grab = null;
         }
-        this._backdrop.destroy();
+        if (!this._overlay) {
+            this._backdrop.destroy();
+            return;
+        }
+        // Hand control back right away; the fade-out is only cosmetic.
+        this._finish();
+        this._backdrop.reactive = false;
+        this._dialog.remove_all_transitions();
+        this._dialog.ease({
+            opacity: 0, scale_y: 0.9, translation_y: -8,
+            duration: OVERLAY_CLOSE_TIME,
+            mode: Clutter.AnimationMode.EASE_IN_QUAD,
+        });
+        this._backdrop.ease({
+            opacity: 0,
+            duration: OVERLAY_CLOSE_TIME,
+            mode: Clutter.AnimationMode.EASE_IN_QUAD,
+            onStopped: () => this._backdrop.destroy(),
+        });
     }
 
     _finish() {
@@ -251,7 +323,49 @@ export class LauncherPopup {
         }
     }
 
+    _overviewEntryBox() {
+        try {
+            const entry = Main.overview.searchEntry;
+            if (!entry?.mapped)
+                return null;
+            const [x, y] = entry.get_transformed_position();
+            const [w, h] = entry.get_transformed_size();
+            return w > 0 && h > 0 ? {x, y, w, h} : null;
+        } catch {
+            return null;
+        }
+    }
+
+    _placeOverlay() {
+        const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+        const m = Main.layoutManager.primaryMonitor ?? this._monitor();
+        if (!m)
+            return;
+        const box = this._overviewEntryBox();
+        const [, natH] = this._header.get_preferred_height(-1);
+        const pill = box ?? {
+            w: Math.round(Math.min(360 * scale, m.width - 32)),
+            h: natH,
+            x: 0,
+            y: m.y + Math.round(m.height * 0.08),
+        };
+        pill.x = box ? pill.x : m.x + Math.round((m.width - pill.w) / 2);
+        this._header.set_size(pill.w, Math.max(pill.h, natH));
+        this._header.set_position(pill.x, pill.y);
+
+        const width = Math.min(this._cfg.width * scale, m.width - 32);
+        this._dialog.width = width;
+        const top = pill.y + this._header.height + OVERLAY_GAP * scale;
+        this._dialog.set_position(m.x + Math.round((m.width - width) / 2), top);
+        this._overlayMaxHeight = Math.max(160 * scale, m.y + m.height - top - OVERLAY_MARGIN * scale);
+        this._scroll.style = `max-height: ${this._overlayMaxHeight}px;`;
+    }
+
     _place() {
+        if (this._overlay) {
+            this._placeOverlay();
+            return;
+        }
         const m = this._monitor();
         if (!m)
             return;
@@ -324,8 +438,10 @@ export class LauncherPopup {
 
         let result;
         if (cfg.grouped) {
+            const limit = section => this._overlay && section === 'Applications'
+                ? Math.max(cfg.maxResults, this._tilesPerRow()) : cfg.maxResults;
             result = groups
-                .map(([section, items]) => [section, items.slice(0, cfg.maxResults)])
+                .map(([section, items]) => [section, items.slice(0, limit(section))])
                 .sort((a, b) => b[1][0].score - a[1][0].score);
         } else {
             const all = groups.flatMap(([, items]) => items).sort((a, b) => b.score - a.score);
@@ -370,6 +486,11 @@ export class LauncherPopup {
         this._rows = [];
         this._pointerMoved = false;
 
+        if (this._overlay) {
+            this._renderOverlay(groups);
+            return;
+        }
+
         const showHeaders = this._cfg.grouped || groups.length > 1;
         for (const [section, items] of groups) {
             if (showHeaders)
@@ -400,6 +521,244 @@ export class LauncherPopup {
             ? `${this._rows.length} result${this._rows.length === 1 ? '' : 's'}`
             : '';
         this._select(hasRows ? 0 : -1);
+    }
+
+    // ---------- overlay layout ----------
+
+    _overlayOrder(groups) {
+        // Like the mockup: app tiles first, then the calculator, then the lists.
+        const rank = ([section]) => section === 'Applications' ? 0 : section === 'Calculator' ? 1 : 2;
+        return groups
+            .map((g, i) => [g, i])
+            .sort(([a, i], [b, j]) => rank(a) - rank(b) || i - j)
+            .map(([g]) => g);
+    }
+
+    _tilesPerRow() {
+        const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+        const inner = this._dialog.width - 48 * scale;
+        return Math.max(3, Math.floor(inner / (TILE_WIDTH * scale)));
+    }
+
+    _renderOverlay(groups) {
+        for (const [section, items] of this._overlayOrder(groups)) {
+            if (section === 'Applications' || section === 'Suggestions')
+                this._list.add_child(this._buildTiles(items.slice(0, this._tilesPerRow())));
+            else if (section === 'Calculator')
+                items.forEach(item => this._list.add_child(this._buildCard(item)));
+            else
+                this._list.add_child(this._buildSection(section, items));
+        }
+
+        const query = this._entry.text.trim();
+        if (!this._rows.length && query) {
+            const empty = new St.BoxLayout({...VERTICAL, style_class: 'jh-launcher-status', x_expand: true});
+            empty.add_child(new St.Icon({
+                icon_name: 'system-search-symbolic',
+                icon_size: 64,
+                style_class: 'jh-launcher-status-icon',
+                x_align: Clutter.ActorAlign.CENTER,
+            }));
+            empty.add_child(new St.Label({
+                text: 'No Results',
+                style_class: 'jh-launcher-status-title',
+                x_align: Clutter.ActorAlign.CENTER,
+            }));
+            empty.add_child(new St.Label({
+                text: 'Try a different search',
+                style_class: 'jh-launcher-status-description',
+                x_align: Clutter.ActorAlign.CENTER,
+            }));
+            this._list.add_child(empty);
+        }
+        const show = this._rows.length > 0 || !!query;
+        this._dialog.visible = show;
+        this._select(this._rows.length ? 0 : -1);
+    }
+
+    _addRow(item, actor) {
+        const index = this._rows.length;
+        this._rows.push({item, actor});
+        actor.connect('notify::hover', () => {
+            if (actor.hover && this._pointerMoved)
+                this._select(index, false);
+        });
+        actor.connect('clicked', () => {
+            const [, , mods] = global.get_pointer();
+            this._activate(index, (mods & Clutter.ModifierType.SHIFT_MASK) !== 0);
+        });
+        return index;
+    }
+
+    _quickHint(button, index) {
+        if (index >= 9)
+            return null;
+        const hint = new St.Label({
+            text: `Alt ${index + 1}`,
+            style_class: 'jh-launcher-shortcut-hint',
+            visible: false,
+        });
+        button._jhHint = hint;
+        return hint;
+    }
+
+    _buildTiles(items) {
+        const row = new St.BoxLayout({style_class: 'jh-launcher-tiles', x_align: Clutter.ActorAlign.CENTER});
+        for (const item of items) {
+            const tile = new St.Button({
+                style_class: 'jh-launcher-tile',
+                can_focus: false,
+                track_hover: true,
+            });
+            const box = new St.BoxLayout({...VERTICAL, style_class: 'jh-launcher-tile-box'});
+            const icon = item.icon(TILE_ICON);
+            icon.x_align = Clutter.ActorAlign.CENTER;
+            box.add_child(icon);
+            const label = new St.Label({
+                text: item.title,
+                style_class: 'jh-launcher-tile-label',
+                x_align: Clutter.ActorAlign.CENTER,
+            });
+            label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+            box.add_child(label);
+            tile.child = box;
+            const index = this._addRow(item, tile);
+            const hint = this._quickHint(tile, index);
+            if (hint) {
+                hint.x_align = Clutter.ActorAlign.CENTER;
+                box.add_child(hint);
+            }
+            row.add_child(tile);
+        }
+        return row;
+    }
+
+    _buildCard(item) {
+        const card = new St.Button({
+            style_class: 'jh-launcher-card',
+            can_focus: false,
+            track_hover: true,
+            x_expand: true,
+        });
+        const layout = new St.Widget({layout_manager: new Clutter.BinLayout(), x_expand: true});
+        const text = new St.BoxLayout({...VERTICAL, x_align: Clutter.ActorAlign.CENTER, x_expand: true});
+        if (item.subtitle) {
+            text.add_child(new St.Label({
+                text: `${item.subtitle} =`,
+                style_class: 'jh-launcher-card-subtitle',
+                x_align: Clutter.ActorAlign.CENTER,
+            }));
+        }
+        const title = new St.Label({
+            text: item.title,
+            style_class: 'jh-launcher-card-title',
+            x_align: Clutter.ActorAlign.CENTER,
+        });
+        title.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        text.add_child(title);
+        layout.add_child(text);
+        const icon = item.icon(16);
+        icon.x_align = Clutter.ActorAlign.END;
+        icon.y_align = Clutter.ActorAlign.CENTER;
+        icon.add_style_class_name('jh-launcher-card-icon');
+        layout.add_child(icon);
+        card.child = layout;
+        this._addRow(item, card);
+        return card;
+    }
+
+    _sectionAction(section) {
+        if (section === 'Recent Files')
+            return ['Show in Files', 'recent:///'];
+        return null;
+    }
+
+    _buildSection(section, items) {
+        const box = new St.BoxLayout({...VERTICAL, style_class: 'jh-launcher-group', x_expand: true});
+        const head = new St.BoxLayout({style_class: 'jh-launcher-group-header', x_expand: true});
+        head.add_child(new St.Label({
+            text: section,
+            style_class: 'jh-launcher-group-title',
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+        }));
+        const action = this._sectionAction(section);
+        if (action) {
+            const [label, uri] = action;
+            const button = new St.Button({
+                label,
+                style_class: 'jh-launcher-group-button',
+                can_focus: false,
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            button.connect('clicked', () => {
+                this.close();
+                Gio.AppInfo.launch_default_for_uri_async(uri, global.create_app_launch_context(0, -1), null, null);
+                Main.overview.hide();
+            });
+            head.add_child(button);
+        }
+        box.add_child(head);
+
+        const list = new St.BoxLayout({...VERTICAL, style_class: 'jh-launcher-boxed-list', x_expand: true});
+        for (const item of items)
+            list.add_child(this._buildListRow(item));
+        box.add_child(list);
+        return box;
+    }
+
+    _buildListRow(item) {
+        const button = new St.Button({
+            style_class: 'jh-launcher-boxed-row',
+            can_focus: false,
+            track_hover: true,
+            x_expand: true,
+        });
+        const box = new St.BoxLayout({style_class: 'jh-launcher-row-box', x_expand: true});
+        button.child = box;
+
+        // Apps get their full-colour icon; everything else a small icon on a tile.
+        const plain = ['File', 'System', 'Web', 'Command'].includes(item.kind);
+        const frame = new St.Bin({
+            style_class: plain ? 'jh-launcher-thumb symbolic' : 'jh-launcher-thumb',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        const icon = item.icon(plain ? 20 : LIST_ICON);
+        icon.x_align = icon.y_align = Clutter.ActorAlign.CENTER;
+        frame.child = icon;
+        box.add_child(frame);
+
+        const text = new St.BoxLayout({...VERTICAL, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        const title = new St.Label({text: item.title, style_class: 'jh-launcher-title'});
+        title.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        text.add_child(title);
+        if (this._cfg.subtitles && item.subtitle) {
+            const sub = new St.Label({text: item.subtitle, style_class: 'jh-launcher-subtitle'});
+            sub.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+            text.add_child(sub);
+        }
+        box.add_child(text);
+
+        const index = this._addRow(item, button);
+        const hint = this._quickHint(button, index);
+        if (hint) {
+            hint.y_align = Clutter.ActorAlign.CENTER;
+            box.add_child(hint);
+        }
+
+        const altIcon = item.altAction && ROW_ACTION_ICONS[item.kind];
+        if (altIcon) {
+            const alt = new St.Button({
+                style_class: 'jh-launcher-row-action',
+                can_focus: false,
+                accessible_name: item.altAction,
+                y_align: Clutter.ActorAlign.CENTER,
+                child: new St.Icon({icon_name: altIcon, icon_size: 16}),
+            });
+            alt.connect('clicked', () => this._activate(index, true));
+            box.add_child(alt);
+        }
+        return button;
     }
 
     _buildRow(item, index) {
