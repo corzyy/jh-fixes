@@ -26,11 +26,10 @@ function readSource(extensionPath) {
         const [, bytes] = GLib.file_get_contents(
             GLib.build_filenamev([extensionPath, 'source.json']));
         const source = JSON.parse(new TextDecoder().decode(bytes));
-        if (source.repo && /^[0-9a-f]{40}$/.test(source.commit))
-            return source;
+        return source.repo && /^[0-9a-f]{40}$/.test(source.commit) ? source : null;
     } catch {
+        return null;
     }
-    return null;
 }
 
 export function addUpdateBanner(pages, {window, path}) {

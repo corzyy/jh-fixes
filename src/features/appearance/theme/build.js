@@ -233,32 +233,23 @@ export function paletteColours(name) {
     };
 }
 
-export function buildCss({stockCss, darkness = 100, palette = 'darker', parts, options = {}}) {
-    const t = darkness / 100;
+export function buildCss({stockCss, palette = 'darker', parts, options = {}}) {
     const target = paletteTargets(palette);
+    const fg = target.fg && rgbToHex(target.fg);
 
-    const greys = {};
+    const greys = {[FG]: fg ?? FG};
     for (const from of Object.keys(GREYS))
-        greys[from] = rgbToHex(mix(hexToRgb(from), target.greys[from], t));
-    const rgbaGreys = {};
+        greys[from] = rgbToHex(target.greys[from]);
+    const rgbaGreys = {[FG_RGBA]: target.fg?.join(', ') ?? FG_RGBA};
     for (const from of Object.keys(RGBA_GREYS))
-        rgbaGreys[from] = mix(parseTriple(from), target.rgbaGreys[from], t).join(', ');
-
-    const fg = target.fg && mix(hexToRgb(FG), target.fg, t);
-    if (fg) {
-        greys[FG] = rgbToHex(fg);
-        rgbaGreys[FG_RGBA] = fg.join(', ');
-    } else {
-        greys[FG] = FG;
-        rgbaGreys[FG_RGBA] = FG_RGBA;
-    }
+        rgbaGreys[from] = target.rgbaGreys[from].join(', ');
 
     parts = new Map([...parts].map(([id, css]) => {
         if (id === 'dash' && options['dash-style'] === 'gnome')
             css = GNOME_DASH_CSS;
         css = target.recolourPart(css);
         if (fg)
-            css = css.replaceAll(PART_FG, rgbToHex(mix(hexToRgb(PART_FG), target.fg, t)));
+            css = css.replaceAll(PART_FG, fg);
         return [id, id === 'dash' ? css.replaceAll('@dash-bg@', dashBackground(greys)) : css];
     }));
 

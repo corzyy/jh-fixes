@@ -182,13 +182,13 @@ export function paletteGrid({settings}) {
 
 export const STYLES = [
     {id: 'sliders', title: 'Sliders', options: [
-        number('shell-theme-slider-height', 'Quick Settings slider thickness', '', {unit: 'px'}),
+        number('shell-theme-slider-height', 'Quick Settings slider thickness', {unit: 'px'}),
     ]},
     {id: 'menus', title: 'Popup menus', options: [
-        number('shell-theme-menu-shadow', 'Shadow strength', '', {unit: '%', step: 5}),
+        number('shell-theme-menu-shadow', 'Shadow strength', {unit: '%', step: 5}),
     ]},
     {id: 'dash', title: 'Dash', options: [
-        toggles('shell-theme-dash-style', 'Theme', '', [['umbra', 'Umbra'], ['gnome', 'GNOME']]),
+        toggles('shell-theme-dash-style', 'Theme', [['umbra', 'Umbra'], ['gnome', 'GNOME']]),
     ]},
 ];
 

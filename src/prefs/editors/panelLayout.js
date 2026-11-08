@@ -2,11 +2,10 @@ import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import GObject from 'gi://GObject';
 import Gtk from 'gi://Gtk';
 
 import {ACTIVITIES_KEY, BOXES, KEYS, STOCK_ITEMS, arrangeBoxes, isFollower, withFollowers} from '../../lib/panelCatalog.js';
-import {addCss, onChanged} from '../ui/build.js';
+import {addCss, addDropTarget, clear, onChanged, showPopover} from '../ui/build.js';
 
 const FALLBACK_ICON = 'application-x-addon-symbolic';
 const QUICK_SETTINGS_ICONS = [
@@ -84,14 +83,6 @@ function itemsOf(settings) {
     return items;
 }
 
-function clear(widget) {
-    for (let child = widget.get_first_child(); child;) {
-        const next = child.get_next_sibling();
-        widget.remove(child);
-        child = next;
-    }
-}
-
 export function panelLayout({settings}) {
     addCss('panel-layout', CSS);
     return new PanelPreview(settings).widget;
@@ -126,18 +117,7 @@ class PanelPreview {
         this._chips = new Adw.WrapBox({child_spacing: 8, line_spacing: 8, hexpand: true});
         const hiddenArea = new Gtk.Box({css_classes: ['jh-pb-hidden'], margin_top: 12});
         hiddenArea.append(this._chips);
-        const target = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE);
-        target.connect('motion', () => {
-            hiddenArea.add_css_class('jh-drop-hover');
-            return Gdk.DragAction.MOVE;
-        });
-        target.connect('leave', () => hiddenArea.remove_css_class('jh-drop-hover'));
-        target.connect('drop', (_t, role) => {
-            hiddenArea.remove_css_class('jh-drop-hover');
-            this._setHidden(role, true);
-            return true;
-        });
-        hiddenArea.add_controller(target);
+        addDropTarget(hiddenArea, {drop: role => this._setHidden(role, true)});
 
         this.widget = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 8});
         this.widget.append(this._bar);
@@ -320,26 +300,22 @@ class PanelPreview {
         box.append(new Gtk.Label({label: title, hexpand: true, xalign: 0}));
         box.append(dropDown);
 
-        const popover = new Gtk.Popover({child: box});
-        popover.set_parent(this._bar);
         const [, bounds] = cell.compute_bounds(this._bar);
-        popover.pointing_to = new Gdk.Rectangle({
-            x: Math.round(bounds.get_x()), y: Math.round(bounds.get_y()),
-            width: Math.round(bounds.get_width()), height: Math.round(bounds.get_height()),
+        const popover = new Gtk.Popover({
+            child: box,
+            pointing_to: new Gdk.Rectangle({
+                x: Math.round(bounds.get_x()), y: Math.round(bounds.get_y()),
+                width: Math.round(bounds.get_width()), height: Math.round(bounds.get_height()),
+            }),
         });
         this._popover = popover;
-        popover.connect('closed', () => {
+        showPopover(popover, this._bar, () => {
             this._popover = null;
             if (this._rebuildPending) {
                 this._rebuildPending = false;
                 this._queueRebuild();
             }
-            GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                popover.unparent();
-                return GLib.SOURCE_REMOVE;
-            });
         });
-        popover.popup();
     }
 
     _addDragSource(cell, role) {
@@ -347,10 +323,7 @@ class PanelPreview {
         let hot = [0, 0];
         source.connect('prepare', (_s, x, y) => {
             hot = [x, y];
-            const value = new GObject.Value();
-            value.init(GObject.TYPE_STRING);
-            value.set_string(role);
-            return Gdk.ContentProvider.new_for_value(value);
+            return Gdk.ContentProvider.new_for_value(role);
         });
         source.connect('drag-begin', src => {
             src.set_icon(Gtk.WidgetPaintable.new(cell).get_current_image(), ...hot);
@@ -370,23 +343,14 @@ class PanelPreview {
     _zone(name) {
         const zone = new Gtk.Box({spacing: 2, css_classes: ['jh-pb-zone']});
         zone._name = name;
-        const target = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE);
-        target.connect('motion', (_t, x) => {
-            zone.add_css_class('jh-drop-hover');
-            this._placeMarker(zone, x);
-            return Gdk.DragAction.MOVE;
+        addDropTarget(zone, {
+            motion: x => this._placeMarker(zone, x),
+            leave: () => {
+                if (this._marker.get_parent() === zone)
+                    this._removeMarker();
+            },
+            drop: role => this._drop(zone, role),
         });
-        target.connect('leave', () => {
-            zone.remove_css_class('jh-drop-hover');
-            if (this._marker.get_parent() === zone)
-                this._removeMarker();
-        });
-        target.connect('drop', (_t, role) => {
-            zone.remove_css_class('jh-drop-hover');
-            this._drop(zone, role);
-            return true;
-        });
-        zone.add_controller(target);
         return zone;
     }
 

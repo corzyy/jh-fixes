@@ -1,20 +1,18 @@
 # jh-fixes
 
-A GNOME Shell 51 extension with small personal tweaks to the top bar, Quick Settings, dash, Overview, windows, Alt+Tab and shell theme.
+Small personal tweaks for GNOME Shell 51: top bar layout, Quick Settings,
+dash, Overview, window corners, Alt+Tab and a darker shell theme.
 
 ## Install
 
-**Requirements:** GNOME Shell 51, `git` and `make`.
+Needs GNOME Shell 51, `git` and `make`.
 
-    git clone git@github.com:corzyy/jh-fixes.git   # private repo: needs access
+    git clone git@github.com:corzyy/jh-fixes.git
     cd jh-fixes
     make install
 
-The extension goes to `~/.local/share/gnome-shell/extensions/jh-fixes@local`.
-
-The first time, **log out and back in** so GNOME Shell picks it up, then:
+Log out and back in the first time, then:
 
     gnome-extensions enable jh-fixes@local
 
-Open the preferences with `gnome-extensions prefs jh-fixes@local`, or the
-jh-fixes button in Quick Settings.
+Settings: `gnome-extensions prefs jh-fixes@local` or the button in Quick Settings.

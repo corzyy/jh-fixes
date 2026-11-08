@@ -1,7 +1,6 @@
 import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
-import GObject from 'gi://GObject';
 import Graphene from 'gi://Graphene';
 import Gtk from 'gi://Gtk';
 import Pango from 'gi://Pango';
@@ -9,7 +8,7 @@ import Pango from 'gi://Pango';
 import {
     EXTERNAL_PREFIX, FULL_WIDTH, GRID_ITEMS, KEYS, TOP_ROW_BUTTONS, arrange, rankOf, spanFor,
 } from '../../lib/quickSettingsCatalog.js';
-import {addCss, bindNotInList, onChanged} from '../ui/build.js';
+import {addCss, addDropTarget, bindNotInList, clear, onChanged, showPopover} from '../ui/build.js';
 
 const KIND_LABELS = {
     row: 'Row',
@@ -121,14 +120,6 @@ export function quickSettingsLayout({settings}) {
 
 export const LAYOUT_KEYS = [KEYS.hidden, KEYS.order, KEYS.widths, KEYS.prefsButton];
 
-function clear(widget) {
-    for (let child = widget.get_first_child(); child;) {
-        const next = child.get_next_sibling();
-        widget.remove(child);
-        child = next;
-    }
-}
-
 function gridPositions(spans, columns) {
     let row = -1, column = 0;
     return spans.map(span => {
@@ -209,26 +200,25 @@ class Layout {
         this._frame = new Gtk.Box({css_classes: ['jh-qs-menu']});
         this._frame.append(this._grid);
 
-        const target = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE);
-        target.connect('motion', (_t, x, y) => {
-            if (!this._drag)
-                return 0;
-            if (this._drag.isButton)
-                this._topRow?.add_css_class('jh-drop-target');
-            else
-                this._dragOver(x, y);
-            return Gdk.DragAction.MOVE;
+        addDropTarget(this._frame, {
+            motion: (x, y) => {
+                if (!this._drag)
+                    return false;
+                if (this._drag.isButton)
+                    this._topRow?.add_css_class('jh-drop-target');
+                else
+                    this._dragOver(x, y);
+                return true;
+            },
+            leave: () => {
+                this._topRow?.remove_css_class('jh-drop-target');
+                this._dragLeft();
+            },
+            drop: id => {
+                this._topRow?.remove_css_class('jh-drop-target');
+                this._dropInMenu(id);
+            },
         });
-        target.connect('leave', () => {
-            this._topRow?.remove_css_class('jh-drop-target');
-            this._dragLeft();
-        });
-        target.connect('drop', (_t, id) => {
-            this._topRow?.remove_css_class('jh-drop-target');
-            this._dropInMenu(id);
-            return true;
-        });
-        this._frame.add_controller(target);
 
         this.menuGroup.add(this._frame);
     }
@@ -241,18 +231,7 @@ class Layout {
         const area = new Gtk.Box({css_classes: ['jh-hidden-area']});
         area.append(this._chips);
 
-        const target = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE);
-        target.connect('motion', () => {
-            area.add_css_class('jh-drop-hover');
-            return Gdk.DragAction.MOVE;
-        });
-        target.connect('leave', () => area.remove_css_class('jh-drop-hover'));
-        target.connect('drop', (_t, id) => {
-            area.remove_css_class('jh-drop-hover');
-            this._place(id, {hide: true});
-            return true;
-        });
-        area.add_controller(target);
+        addDropTarget(area, {drop: id => this._place(id, {hide: true})});
 
         this.hiddenGroup.add(area);
     }
@@ -471,10 +450,7 @@ class Layout {
                     return null;
             }
             [hotX, hotY] = [x, y];
-            const value = new GObject.Value();
-            value.init(GObject.TYPE_STRING);
-            value.set_string(id);
-            return Gdk.ContentProvider.new_for_value(value);
+            return Gdk.ContentProvider.new_for_value(id);
         });
         source.connect('drag-begin', src => {
             src.set_icon(Gtk.WidgetPaintable.new(cell).get_current_image(), hotX, hotY);
@@ -667,19 +643,14 @@ class Layout {
             width_request: 240,
         });
         const popover = new Gtk.Popover({child: box});
-        popover.set_parent(cell);
         this._popover = popover;
-        popover.connect('closed', () => {
+        const popup = () => showPopover(popover, cell, () => {
             if (this._popover === popover)
                 this._popover = null;
             if (this._rebuildPending) {
                 this._rebuildPending = false;
                 this._queueRebuild();
             }
-            GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                popover.unparent();
-                return GLib.SOURCE_REMOVE;
-            });
         });
 
         const header = new Gtk.Box({spacing: 8, margin_bottom: 4});
@@ -701,7 +672,7 @@ class Layout {
             });
             show.connect('clicked', act(() => this._place(item.id, {hide: false})));
             box.append(show);
-            popover.popup();
+            popup();
             return;
         }
 
@@ -739,7 +710,7 @@ class Layout {
         const hide = new Gtk.Button({label: 'Hide', css_classes: ['destructive-action'], margin_top: 4});
         hide.connect('clicked', act(() => this._place(item.id, {hide: true})));
         box.append(hide);
-        popover.popup();
+        popup();
     }
 
     _topRowSwitches() {

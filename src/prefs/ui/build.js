@@ -1,38 +1,24 @@
 import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
 import Gtk from 'gi://Gtk';
 
-export const toggle = (key, title, subtitle = '', extra = {}) =>
-    ({type: 'toggle', key, title, subtitle, ...extra});
+const row = type => (key, title, extra = {}) => ({type, key, title, ...extra});
+const listRow = type => (key, title, choices, extra = {}) => ({type, key, title, choices, ...extra});
 
-export const choice = (key, title, subtitle, choices, extra = {}) =>
-    ({type: 'choice', key, title, subtitle, choices, ...extra});
+export const toggle = row('toggle');
+export const number = row('number');
+export const slider = row('slider');
+export const shortcut = row('shortcut');
+export const choice = listRow('choice');
+export const toggles = listRow('toggles');
 
-export const toggles = (key, title, subtitle, choices, extra = {}) =>
-    ({type: 'toggles', key, title, subtitle, choices, ...extra});
-
-export const number = (key, title, subtitle = '', extra = {}) =>
-    ({type: 'number', key, title, subtitle, ...extra});
-
-export const slider = (key, title, subtitle = '', extra = {}) =>
-    ({type: 'slider', key, title, subtitle, ...extra});
-
-export const shortcut = (key, title, subtitle = '', extra = {}) =>
-    ({type: 'shortcut', key, title, subtitle, ...extra});
-
-export const link = (title, subtitle, page, extra = {}) =>
-    ({type: 'link', title, subtitle, page, ...extra});
-
-export const custom = (build, keys = [], extra = {}) =>
-    ({type: 'custom', build, keys, ...extra});
-
-export const group = (title, description, rows, extra = {}) =>
-    ({type: 'group', title, description, rows, ...extra});
-
+export const link = (title, page) => ({type: 'link', title, page});
+export const custom = (build, keys = []) => ({type: 'custom', build, keys});
+export const customGroups = (build, keys = []) => ({type: 'customGroups', build, keys});
+export const group = (title, rows, extra = {}) => ({type: 'group', title, rows, ...extra});
 export const section = spec => ({type: 'section', ...spec});
-
-export const customGroups = (build, keys = []) =>
-    ({type: 'customGroups', build, keys});
 
 export function onChanged(settings, keys, callback, widget) {
     const ids = [keys].flat().map(key => settings.connect(`changed::${key}`, () => callback()));
@@ -117,11 +103,7 @@ function addResetButton(row, settings, keys) {
     row.add_suffix(button);
 }
 
-function actionRow(d) {
-    const row = new Adw.ActionRow({use_markup: false});
-    row.set({title: d.title, subtitle: d.subtitle ?? ''});
-    return row;
-}
+const actionRow = d => new Adw.ActionRow({use_markup: false, title: d.title, subtitle: d.subtitle ?? ''});
 
 function keyRow(d, settings, ...suffixes) {
     const row = actionRow(d);
@@ -159,8 +141,6 @@ export function buildRow(d, ctx) {
     bindRequires(row, ctx.settings, d.showIf, 'visible');
     return row;
 }
-
-
 
 const ROW_BUILDERS = {
     toggle(d, ctx) {
@@ -357,7 +337,7 @@ function sectionNote(description) {
 
 function buildSection(d, ctx) {
     const {settings} = ctx;
-    const row = new Adw.ExpanderRow({title: d.title, subtitle: d.description ?? ''});
+    const row = new Adw.ExpanderRow({title: d.title});
     if (d.icon)
         row.add_prefix(new Gtk.Image({icon_name: d.icon}));
 
@@ -425,17 +405,13 @@ function fillPage(page, spec, ctx) {
 
 export function buildPage(spec, ctx) {
     addCss('base', CSS);
-    const page = new Adw.PreferencesPage({
-        title: spec.title,
-        icon_name: spec.icon,
-        description: spec.description ?? '',
-    });
+    const page = new Adw.PreferencesPage({title: spec.title, icon_name: spec.icon});
     fillPage(page, spec, ctx);
     return page;
 }
 
 function buildSubpage(spec, ctx) {
-    const page = new Adw.PreferencesPage({description: spec.description ?? ''});
+    const page = new Adw.PreferencesPage();
     fillPage(page, spec, ctx);
     const view = new Adw.ToolbarView({content: page});
     view.add_top_bar(new Adw.HeaderBar());
@@ -448,6 +424,44 @@ const CSS = `
 .jh-note { padding: 10px 12px; background: none; }
 .jh-option { padding-left: 24px; }
 `;
+
+export function clear(widget) {
+    let child;
+    while ((child = widget.get_first_child()))
+        widget.remove(child);
+}
+
+export function addDropTarget(widget, {drop, motion = () => true, leave = () => {}}) {
+    const target = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE);
+    target.connect('motion', (_t, x, y) => {
+        if (motion(x, y) === false)
+            return 0;
+        widget.add_css_class('jh-drop-hover');
+        return Gdk.DragAction.MOVE;
+    });
+    target.connect('leave', () => {
+        widget.remove_css_class('jh-drop-hover');
+        leave();
+    });
+    target.connect('drop', (_t, value) => {
+        widget.remove_css_class('jh-drop-hover');
+        drop(value);
+        return true;
+    });
+    widget.add_controller(target);
+}
+
+export function showPopover(popover, parent, onClosed) {
+    popover.set_parent(parent);
+    popover.connect('closed', () => {
+        onClosed();
+        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            popover.unparent();
+            return GLib.SOURCE_REMOVE;
+        });
+    });
+    popover.popup();
+}
 
 export function addCss(name, css) {
     const display = Gdk.Display.get_default();
