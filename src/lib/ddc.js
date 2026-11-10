@@ -1,12 +1,17 @@
+// Thin async wrapper around the `ddcutil` command line tool, used to control the
+// brightness of external monitors over DDC/CI.
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
 
+// VCP feature code 0x10 is brightness.
 const BRIGHTNESS = '10';
 
+// We address monitors by bus number, so the slow display re-detection can be skipped.
 const KNOWN_DISPLAY = ['--skip-ddc-checks'];
 
+// Runs ddcutil and resolves with its stdout. Cancelling kills the process.
 async function ddcutil(args, cancellable = null) {
     const proc = Gio.Subprocess.new(['ddcutil', ...args],
         Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE);
@@ -26,6 +31,8 @@ export function haveDdcutil() {
     return GLib.find_program_in_path('ddcutil') !== null;
 }
 
+// Lists DDC-capable monitors as {bus, name, connector}, parsed from the terse
+// output. The connector (e.g. DP-1) is how they are matched to shell monitors.
 export async function detect(cancellable = null) {
     const out = await ddcutil(['detect', '--terse'], cancellable);
     const displays = [];
@@ -51,6 +58,7 @@ export async function detect(cancellable = null) {
     return displays.filter(d => d.bus >= 0);
 }
 
+// Resolves with {current, max}. Brief output looks like "VCP 10 C <current> <max>".
 export async function getBrightness(bus, cancellable = null) {
     const out = await ddcutil(['getvcp', BRIGHTNESS, '--brief', '--bus', `${bus}`,
         ...KNOWN_DISPLAY], cancellable);
@@ -60,6 +68,7 @@ export async function getBrightness(bus, cancellable = null) {
     return {current: Number(m[1]), max: Number(m[2])};
 }
 
+// --noverify skips the read-back, which makes dragging the slider much smoother.
 export async function setBrightness(bus, value, cancellable = null) {
     await ddcutil(['setvcp', BRIGHTNESS, `${value}`, '--bus', `${bus}`, '--noverify',
         ...KNOWN_DISPLAY], cancellable);

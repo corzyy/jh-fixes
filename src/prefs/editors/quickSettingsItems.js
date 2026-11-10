@@ -1,13 +1,16 @@
+// Editors for the Quick Settings pages: which items and top row buttons are shown.
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 
 import {bindNotInList, onChanged} from '../ui/build.js';
 import {EXTERNAL_PREFIX, GRID_ITEMS, KEYS, TOP_ROW_BUTTONS} from '../../lib/quickSettingsCatalog.js';
 
+// Used for items that report no icon.
 const FALLBACK_ICON = 'application-x-addon-symbolic';
 const BACKGROUND_APPS = 'background-apps';
 const SYSTRAY_KEY = 'quick-settings-systray';
 
+// Switch row with an icon.
 function switchRow({title, subtitle = '', icon}) {
     const row = new Adw.SwitchRow({title, subtitle, use_markup: false});
     row.add_prefix(new Gtk.Image({icon_name: icon || FALLBACK_ICON}));
@@ -35,6 +38,8 @@ function listGroup(settings, title, keys, items) {
     return group;
 }
 
+// "Show in the Menu": the built-in items (except Background Apps, which has its own
+// row) plus items other extensions added, as remembered in the settings.
 export function menuItemsGroup(settings) {
     const unpack = key => settings.get_value(key).deepUnpack();
     return listGroup(settings, 'Show in the Menu', [KEYS.known, KEYS.knownIcons], () => {
@@ -46,6 +51,8 @@ export function menuItemsGroup(settings) {
     });
 }
 
+// The battery button only appears on computers that have one, so it is only listed
+// while present or hidden. The extension's own settings button is a separate switch.
 export function topRowGroup(settings) {
     const group = listGroup(settings, 'Show in the Top Row', [], () =>
         TOP_ROW_BUTTONS.map(button => ({...button, always: button.id !== 'button-battery'})));
@@ -68,6 +75,7 @@ const BACKGROUND_SUBTITLES = {
     tray: 'jh-fixes list: GNOME\'s apps plus system tray icons',
 };
 
+// Reads as one of the three modes from two settings: hidden list and systray flag.
 export function backgroundAppsRow({settings}) {
     const row = new Adw.ComboRow({
         title: 'Background apps',

@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
+  <!-- Settings of jh-fixes. Keys are grouped by feature; the prefs pages (src/prefs/pages) -->
+  <!-- and the features read them by these names. -->
   <schema id="org.gnome.shell.extensions.jh-fixes" path="/org/gnome/shell/extensions/jh-fixes/">
 
 
 
+    <!-- Quick Settings: layout and items -->
     <key name="hidden-quick-settings" type="as">
       <default>[]</default>
       <summary>Hidden Quick Settings items</summary>
@@ -37,6 +40,7 @@
       <default>[]</default>
       <summary>Quick Settings items GNOME shows right now</summary>
     </key>
+    <!-- Quick Settings: extras -->
     <key name="quick-settings-prefs-button" type="b">
       <default>true</default>
       <summary>Show a jh-fixes Settings button in Quick Settings</summary>
@@ -53,6 +57,7 @@
       <default>false</default>
       <summary>Application volume sliders in Quick Settings</summary>
     </key>
+    <!-- Sound devices: seen devices, custom names and hidden devices, per direction -->
     <key name="known-output-devices" type="a{ss}">
       <default>{}</default>
       <summary>Output devices seen so far</summary>
@@ -79,6 +84,7 @@
     </key>
 
 
+    <!-- Overview -->
     <key name="overview-window-titles" type="b">
       <default>true</default>
       <summary>Show window titles in the Overview</summary>
@@ -98,6 +104,7 @@
       <summary>Rows per app grid page</summary>
     </key>
 
+    <!-- Windows -->
     <key name="window-corners" type="b">
       <default>false</default>
       <summary>Round the corners of windows</summary>
@@ -111,6 +118,7 @@
       <summary>Show Desktop shortcut keys</summary>
     </key>
 
+    <!-- Alt+Tab -->
     <key name="alt-tab-mode" type="s">
       <choices>
         <choice value="apps"/>
@@ -135,6 +143,7 @@
       <summary>Alt+Tab popup delay, in milliseconds</summary>
     </key>
 
+    <!-- Launcher -->
     <key name="launcher" type="b">
       <default>false</default>
       <summary>Raycast-style search launcher</summary>
@@ -188,6 +197,7 @@
       <summary>Offer a web search in the launcher</summary>
     </key>
 
+    <!-- Shell theme and top bar -->
     <key name="shell-theme-panel" type="s">
       <choices>
         <choice value="black"/>
@@ -211,6 +221,7 @@
       <default>50</default>
       <summary>Text and icon shadow on a transparent top bar, in percent</summary>
     </key>
+    <!-- Updates -->
     <key name="update-banner" type="b">
       <default>true</default>
       <summary>Show a banner in the preferences when an update is available</summary>

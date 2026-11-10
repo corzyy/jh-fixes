@@ -1,3 +1,6 @@
+// Quick Settings catalog shared by the shell side and the prefs window.
+//
+// GSettings key names used to configure Quick Settings.
 export const KEYS = {
     hidden: 'hidden-quick-settings',
     order: 'quick-settings-order',
@@ -10,6 +13,8 @@ export const KEYS = {
     prefsButton: 'quick-settings-prefs-button',
 };
 
+// Built-in Quick Settings items in stock order. `kind` decides how an item is laid
+// out: "tile" (half width), "slider" or "row" (full width).
 export const GRID_ITEMS = [
     {id: 'system', title: 'Top Row', icon: 'system-shutdown-symbolic', kind: 'row', subtitle: 'Battery, Screenshot, Settings, Lock, Power Off'},
     {id: 'volume-output', title: 'Volume', icon: 'audio-volume-high-symbolic', kind: 'slider'},
@@ -32,6 +37,7 @@ export const GRID_ITEMS = [
     {id: 'background-apps', title: 'Background Apps', icon: 'application-x-executable-symbolic', kind: 'row', subtitle: 'Only shown while apps run in the background'},
 ];
 
+// Buttons of the stock top row that can be toggled individually.
 export const TOP_ROW_BUTTONS = [
     {id: 'button-battery', title: 'Battery', icon: 'battery-level-80-symbolic', subtitle: 'Only on computers with a battery'},
     {id: 'button-screenshot', title: 'Screenshot', icon: 'applets-screenshooter-symbolic'},
@@ -40,10 +46,14 @@ export const TOP_ROW_BUTTONS = [
     {id: 'button-power', title: 'Power Off / Log Out', icon: 'system-shutdown-symbolic'},
 ];
 
+// Items added by other extensions are identified as `ext:<name>`.
 export const EXTERNAL_PREFIX = 'ext:';
 
+// Stored width value meaning "span all columns".
 export const FULL_WIDTH = 0;
 
+// Rank used to slot items that are missing from the saved order. Items from other
+// extensions sort just before the background apps row.
 const CATALOG_RANK = new Map(GRID_ITEMS.map(({id}, i) => [id, i]));
 const EXTERNAL_RANK = CATALOG_RANK.get('background-apps') - 0.5;
 
@@ -51,6 +61,8 @@ export function rankOf(id) {
     return CATALOG_RANK.get(id) ?? EXTERNAL_RANK;
 }
 
+// Orders `ids` by the saved `order`. Ids not in the saved order (new items) are
+// inserted at their stock position relative to the ones that are.
 export function arrange(ids, order) {
     const position = new Map(order.map((id, i) => [id, i]));
     const result = ids.filter(id => position.has(id))
@@ -65,6 +77,8 @@ export function arrange(ids, order) {
     return result;
 }
 
+// Number of columns an item spans: the saved width if there is one, else the stock
+// layout, clamped to the available columns.
 export function spanFor(stored, stockFull, stockSpan, columns) {
     let span;
     if (stored === undefined)

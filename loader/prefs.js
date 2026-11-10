@@ -1,3 +1,4 @@
+// Thin prefs entry point; loads the real prefs.js from the current build.
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {importFromCurrentBuild} from './common.js';

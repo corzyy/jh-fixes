@@ -1,3 +1,7 @@
+// Builds the custom shell stylesheet: GNOME's stock dark stylesheet with its greys
+// replaced by darker ones, our own rules appended, and optional panel rules.
+//
+// Stock grey -> replacement (hex form).
 const GREYS = {
     '#222226': '#0e0e10',
     '#2e2e33': '#151517',
@@ -28,6 +32,7 @@ const GREYS = {
     '#606067': '#3c3c42',
 };
 
+// Same replacement for greys that appear as rgba(r, g, b, a) in the stock CSS.
 const RGBA_GREYS = {
     '56, 56, 59': '26, 26, 29',
     '54, 54, 58': '24, 24, 27',
@@ -35,13 +40,18 @@ const RGBA_GREYS = {
     '34, 34, 38': '14, 14, 16',
 };
 
+// Style class added to the panel while a window touches it (dynamic panel mode).
 export const PANEL_SOLID_CLASS = 'jh-fixes-panel-solid';
 
 const PANEL_GREY = GREYS['#222226'];
 
+// Matches any hex grey, or the start of an rgba() with one of the known greys.
 const GREY_RE = new RegExp(
     `${Object.keys(GREYS).join('|')}|rgba\\((${Object.keys(RGBA_GREYS).join('|')}),`, 'g');
 
+// Extra rules for the top bar. `panel` is "black" (stock, nothing added), "theme", "transparent" or
+// "dynamic" (transparent, but solid while a window touches it); `solid` is the
+// color of the solid state and `shadow` the text/icon shadow strength in percent.
 function panelCss({panel, solid, shadow}) {
     const dynamic = panel === 'dynamic';
     const transparent = panel === 'transparent' || dynamic;
@@ -67,6 +77,7 @@ function panelCss({panel, solid, shadow}) {
     return `\n${rules.join('\n')}\n`;
 }
 
+// Stock CSS recoloured in a single regex pass, followed by our own CSS.
 export function buildCss(stockCss, extraCss, options) {
     const recoloured = stockCss.replace(GREY_RE,
         (m, rgb) => (rgb ? `rgba(${RGBA_GREYS[rgb]},` : GREYS[m]));

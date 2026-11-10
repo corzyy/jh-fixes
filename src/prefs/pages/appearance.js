@@ -1,3 +1,4 @@
+// Appearance page: top bar background and updates.
 import {choice, custom, group, number, toggle} from '../ui/build.js';
 import {userThemesWarning} from '../editors/theme.js';
 
@@ -13,9 +14,11 @@ export default {
                 ['transparent', 'Transparent'],
                 ['dynamic', 'Dynamic'],
             ]),
+            // Dynamic mode only: color while a window touches the bar.
             choice('shell-theme-panel-solid', 'Behind windows',
                 [['theme', 'Theme grey'], ['black', 'Black']],
                 {showIf: {key: 'shell-theme-panel', is: 'dynamic'}}),
+            // Text shadow keeps the labels readable on a transparent bar.
             number('shell-theme-panel-shadow', 'Text shadow', {
                 unit: '%', step: 5,
                 showIf: {key: 'shell-theme-panel', in: ['transparent', 'dynamic']},

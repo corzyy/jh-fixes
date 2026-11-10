@@ -1,3 +1,4 @@
+// Extension entry point: creates every feature and ties it to enable()/disable().
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import {lazyFeature} from './lib/lazy.js';
@@ -12,6 +13,9 @@ import {ShowDesktop} from './features/windows/showDesktop.js';
 import {AltTabSwitcher} from './features/altTab/altTab.js';
 import {ShellTheme} from './features/appearance/theme/theme.js';
 
+// Each feature is a class with enable()/disable() constructed with (settings, extension).
+// Heavy ones are wrapped in lazyFeature() so their module is only imported once
+// their setting is switched on.
 const FEATURES = [
     OverviewAtStartup,
     DynamicPanel,
@@ -31,6 +35,7 @@ const FEATURES = [
     ShellTheme,
 ];
 
+// One failing feature must not take the others down, so each is wrapped in try/catch.
 export default class JhFixesExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
@@ -46,6 +51,7 @@ export default class JhFixesExtension extends Extension {
         }
     }
 
+    // Tear down in reverse order of creation.
     disable() {
         for (const feature of this._features.reverse()) {
             try {

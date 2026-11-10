@@ -1,8 +1,18 @@
+// Turns declarative page specs (see prefs/pages) into Adwaita widgets.
+//
+// A spec is {title, icon, groups}. Rows are plain objects made with the helpers below
+// (toggle, choice, number, slider, shortcut, link, custom) and bound directly to a
+// GSettings key. Common options on any row:
+//   subtitle  second line of text
+//   requires  setting(s) that must hold for the row to be sensitive
+//   showIf    same, but controls visibility
+//   options   (toggle only) nested rows shown in an expander
 import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 
+// Row spec factories.
 const row = type => (key, title, extra = {}) => ({type, key, title, ...extra});
 const listRow = type => (key, title, choices, extra = {}) => ({type, key, title, choices, ...extra});
 
@@ -12,27 +22,35 @@ export const slider = row('slider');
 export const shortcut = row('shortcut');
 export const choice = listRow('choice');
 
+// Link opens a subpage built by `page(ctx)`; custom/customGroups call `build(ctx)` to
+// get a widget (or widgets) of their own.
 export const link = (title, page, extra = {}) => ({type: 'link', title, page, ...extra});
 export const custom = (build, keys = []) => ({type: 'custom', build, keys});
 export const customGroups = (build, keys = []) => ({type: 'customGroups', build, keys});
 export const group = (title, rows, extra = {}) => ({type: 'group', title, rows, ...extra});
 
+// Calls `callback` when any of `keys` changes; disconnects when `widget` is destroyed.
 export function onChanged(settings, keys, callback, widget) {
     const ids = [keys].flat().map(key => settings.connect(`changed::${key}`, () => callback()));
     widget.connect('destroy', () => ids.forEach(id => settings.disconnect(id)));
 }
 
+// True if the key differs from its default (decides whether to show the reset button).
 const isChanged = (settings, key) =>
     !settings.get_value(key).equal(settings.get_default_value(key));
 
+// GVariant type string of a key, e.g. "i" or "s".
 const typeOf = (settings, key) =>
     settings.settings_schema.get_key(key).get_value_type().dup_string();
 
+// Minimum and maximum of an integer key as declared in the schema.
 function rangeOf(settings, key) {
     const [, range] = settings.settings_schema.get_key(key).get_range().deepUnpack();
     return range.deepUnpack();
 }
 
+// Two-way binds a boolean property to "id is NOT in the string list `key`". Used for
+// "hidden" lists, where a switch means shown.
 export function bindNotInList(settings, key, id, obj, prop) {
     const sync = () => {
         const value = !settings.get_strv(key).includes(id);
@@ -53,6 +71,8 @@ export function bindNotInList(settings, key, id, obj, prop) {
     });
 }
 
+// `requires`/`showIf` accept a key name, {key, is | isNot | in} or an array of those
+// (all must hold). conditionKeys lists the keys involved, holds() evaluates them.
 function conditionKeys(requires) {
     if (!requires)
         return [];
@@ -74,8 +94,10 @@ function holds(settings, requires) {
     return 'is' in requires ? value === requires.is : value !== requires.isNot;
 }
 
+// Combines two optional conditions into one list.
 const andAlso = (a, b) => [a, b].filter(Boolean).flat();
 
+// Keeps a widget property (sensitive by default) in sync with a condition.
 function bindRequires(widget, settings, requires, prop = 'sensitive') {
     if (!requires)
         return;
@@ -84,6 +106,7 @@ function bindRequires(widget, settings, requires, prop = 'sensitive') {
     sync();
 }
 
+// Adds a "back to default" button that is only visible when a key was changed.
 function addResetButton(row, settings, keys) {
     const button = new Gtk.Button({
         icon_name: 'edit-undo-symbolic',
@@ -100,6 +123,7 @@ function addResetButton(row, settings, keys) {
 
 const actionRow = d => new Adw.ActionRow({use_markup: false, title: d.title, subtitle: d.subtitle ?? ''});
 
+// Standard row for a setting: title, subtitle, reset button and the control(s).
 function keyRow(d, settings, ...suffixes) {
     const row = actionRow(d);
     addResetButton(row, settings, [d.key]);
@@ -107,6 +131,8 @@ function keyRow(d, settings, ...suffixes) {
     return row;
 }
 
+// Spin button or scale for an integer key, with the range from the schema. Writes are
+// skipped when the value is unchanged to avoid feedback loops.
 function intControl(Widget, d, settings, props) {
     const [lower, upper] = rangeOf(settings, d.key);
     const step = d.step ?? 1;
@@ -130,6 +156,7 @@ function intControl(Widget, d, settings, props) {
     return control;
 }
 
+// Builds a row from its spec and applies its conditions.
 export function buildRow(d, ctx) {
     const row = ROW_BUILDERS[d.type](d, ctx);
     bindRequires(row, ctx.settings, d.requires);
@@ -137,6 +164,7 @@ export function buildRow(d, ctx) {
     return row;
 }
 
+// One builder per row type.
 const ROW_BUILDERS = {
     toggle(d, ctx) {
         const {settings} = ctx;
@@ -162,6 +190,8 @@ const ROW_BUILDERS = {
         return row;
     },
 
+    // Drop-down. String keys take [value, label] pairs; integer keys take plain
+    // values (labels from `format`). An integer not in the list selects the next lower one.
     choice(d, {settings}) {
         const isInt = typeOf(settings, d.key) === 'i';
         const values = isInt ? d.choices : d.choices.map(([value]) => value);
@@ -245,12 +275,14 @@ const ROW_BUILDERS = {
     },
 };
 
+// Keys that are accepted as a shortcut without a modifier.
 const BARE_KEYS = new Set([
     Gdk.KEY_F1, Gdk.KEY_F2, Gdk.KEY_F3, Gdk.KEY_F4, Gdk.KEY_F5, Gdk.KEY_F6,
     Gdk.KEY_F7, Gdk.KEY_F8, Gdk.KEY_F9, Gdk.KEY_F10, Gdk.KEY_F11, Gdk.KEY_F12,
     Gdk.KEY_Print, Gdk.KEY_Pause, Gdk.KEY_Scroll_Lock,
 ]);
 
+// Dialog that captures the next key combination. Escape cancels, Backspace clears.
 function askForShortcut(parent, title, done) {
     const dialog = new Adw.AlertDialog({
         heading: title,
@@ -277,6 +309,7 @@ function askForShortcut(parent, title, done) {
     dialog.present(parent);
 }
 
+// Group titles are Pango markup; escaping makes "&" and "<" show as typed.
 function buildGroups(d, ctx) {
     if (d.type === 'customGroups')
         return [d.build(ctx)].flat();
@@ -311,11 +344,13 @@ function buildSubpage(spec, ctx) {
     return new Adw.NavigationPage({title: spec.title, child: view});
 }
 
+// Style for the reset button.
 const CSS = `
 .jh-reset { min-width: 24px; min-height: 24px; padding: 0; opacity: 0.7; }
 .jh-reset:hover { opacity: 1; }
 `;
 
+// Loads a CSS provider once per name for the whole display; later calls replace its CSS.
 export function addCss(name, css) {
     const display = Gdk.Display.get_default();
     if (!display)

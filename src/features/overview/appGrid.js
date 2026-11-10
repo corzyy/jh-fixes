@@ -1,3 +1,6 @@
+// Custom number of columns/rows for the app grid in the Overview. A value of 0 keeps
+// GNOME's automatic choice for that dimension; if only one is set the other is
+// derived from the aspect ratio of the available area.
 import Meta from 'gi://Meta';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -22,6 +25,8 @@ export class AppGridLayout {
         const grid = appDisplay._grid;
         const self = this;
 
+        // The grid normally picks its layout from the available size. Replace that with our
+        // page size when custom values are set, and fall back to the original otherwise.
         const findMode = Object.getPrototypeOf(grid)._findBestModeForSize;
         grid._findBestModeForSize = function (width, height) {
             const size = self._pageSize(this, width, height);
@@ -38,6 +43,8 @@ export class AppGridLayout {
             self._queueReflow();
         };
 
+        // Saved icon positions are stored per page of the stock layout. Convert them to a
+        // flat index and back so icons keep their order when the page size changes.
         const getPosition = Object.getPrototypeOf(appDisplay)._getItemPosition;
         appDisplay._getItemPosition = function (item) {
             const [page, position] = getPosition.call(this, item);
@@ -58,6 +65,7 @@ export class AppGridLayout {
         this._apply();
     }
 
+    // Restore the stock methods and re-run the stock layout.
     disable() {
         this._settings.disconnectObject(this);
         if (this._laterId)
@@ -86,6 +94,7 @@ export class AppGridLayout {
         return this._columns > 0 || this._rows > 0;
     }
 
+    // Columns/rows per page for the given allocation, or null for the stock layout.
     _pageSize(grid, width, height) {
         let {_columns: columns, _rows: rows} = this;
         if (!columns && !rows)
@@ -102,6 +111,7 @@ export class AppGridLayout {
         return {columns, rows};
     }
 
+    // Re-read the settings and lay the grid out again.
     _apply() {
         this._columns = this._settings.get_int(COLUMNS_KEY);
         this._rows = this._settings.get_int(ROWS_KEY);
@@ -113,11 +123,13 @@ export class AppGridLayout {
         this._queueReflow();
     }
 
+    // Invalidating the cached page width forces the layout manager to recompute pages.
     _relayout(grid) {
         grid.layout_manager._pageWidth = -1;
         grid.queue_relayout();
     }
 
+    // Moving items must not happen in the middle of a relayout; do it before the next redraw.
     _queueReflow() {
         if (this._laterId)
             return;
@@ -129,6 +141,7 @@ export class AppGridLayout {
         });
     }
 
+    // Redistribute all icons over the pages in their current order.
     _reflow(appDisplay) {
         const perPage = appDisplay._grid.itemsPerPage;
         appDisplay._orderedItems.slice().forEach((item, i) => {

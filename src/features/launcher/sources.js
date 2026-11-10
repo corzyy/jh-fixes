@@ -1,3 +1,8 @@
+// Search sources of the launcher. Each source class has a `key` (the setting that
+// enables it), a `section` title and a search(query, rawQuery) method returning result
+// items. An item is {id, title, subtitle, kind, icon(size), score, action,
+// altAction, activate(alt)}; `id` is what the launcher history remembers (null =
+// not remembered).
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
@@ -10,15 +15,19 @@ import * as Util from 'resource:///org/gnome/shell/misc/util.js';
 
 import {calculate, scoreFields} from './match.js';
 
+// Used by the "Search the Web" fallback item.
 const WEB_SEARCH = 'https://duckduckgo.com/?q=';
 
+// Icon factories: functions of the size that create the actor when a row needs it.
 const themedIcon = name => size => new St.Icon({icon_name: name, icon_size: size});
 const giconIcon = gicon => size => new St.Icon({gicon, icon_size: size});
 const appIcon = app => size => app?.create_icon_texture(size) ??
     new St.Icon({icon_name: 'application-x-executable', icon_size: size});
 
+// Desktop entries with this category are panels of GNOME Settings.
 const SETTINGS_CATEGORY = 'X-GNOME-Settings-Panel';
 
+// Searchable texts of an app with weights: name, generic name, keywords, executable.
 function appFields(info) {
     const fields = [[info.get_display_name() ?? info.get_name(), 1]];
     const generic = info.get_generic_name?.();
@@ -32,6 +41,7 @@ function appFields(info) {
     return fields;
 }
 
+// Result item for an app. The alternative action opens a new window, if supported.
 function appItem(app, score, {kind = 'Application', key = 'app'} = {}) {
     const info = app.app_info;
     return {
@@ -59,6 +69,7 @@ function appItem(app, score, {kind = 'Application', key = 'app'} = {}) {
 //              Items are reused between calls, with `score` set by each search.
 
 // Installed apps, split into Settings panels and everything else.
+// Installed apps, split into Settings panels and everything else.
 class AppSource {
     static panels = false;
     static itemOptions = {};
@@ -83,6 +94,7 @@ class AppSource {
             entry.item = null;
     }
 
+    // Entries are {app, id, fields, item}; `item` is created on first match and reused.
     _load() {
         const {panels} = this.constructor;
         const entries = [];
@@ -97,6 +109,7 @@ class AppSource {
         return entries;
     }
 
+    // Hook for subclasses to adjust the score.
     _score(s) {
         return s;
     }
@@ -116,6 +129,7 @@ class AppSource {
     }
 }
 
+// Regular applications. Frequently used apps get a bonus of up to 60 points.
 class Apps extends AppSource {
     static key = 'launcher-apps';
     static section = 'Applications';
@@ -131,6 +145,7 @@ class Apps extends AppSource {
         return s + (this._usage.get(entry.id) ?? 0);
     }
 
+    // Shown for an empty query: the most used apps.
     empty() {
         return Shell.AppUsage.get_default().get_most_used()
             .filter(app => app.app_info?.should_show())
@@ -138,6 +153,7 @@ class Apps extends AppSource {
     }
 }
 
+// Panels of GNOME Settings, ranked slightly below apps.
 class SettingsPanels extends AppSource {
     static key = 'launcher-settings-panels';
     static section = 'Settings';
@@ -149,6 +165,7 @@ class SettingsPanels extends AppSource {
     }
 }
 
+// Open windows of the current session, across workspaces. Closing via the alt action.
 class Windows {
     static key = 'launcher-windows';
     static section = 'Open Windows';
@@ -205,10 +222,12 @@ class Windows {
     }
 }
 
+// System actions the shell knows about (lock, suspend, power off, ...).
 class System {
     static key = 'launcher-system-actions';
     static section = 'System';
 
+    // All currently available actions as items. Scores are set in search().
     static all() {
         const actions = SystemActions.getDefault();
         const items = [];
@@ -250,14 +269,18 @@ class System {
     }
 }
 
+// Replaces the home directory prefix with "~" for display.
 function tildify(path) {
     const home = GLib.get_home_dir();
     return path === home || path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
 }
 
+// The recently used files list that GTK applications write to.
 const XBEL = GLib.build_filenamev([GLib.get_user_data_dir(), 'recently-used.xbel']);
 const MAX_FILES = 300;
 
+// The XBEL file is XML; the few entities that can occur in URIs are decoded by hand
+// instead of using a full parser.
 const XML_ENTITIES = {amp: '&', lt: '<', gt: '>', quot: '"', apos: "'"};
 
 function unescapeXml(s) {
@@ -288,6 +311,7 @@ function parseRecentFiles(text) {
     return files;
 }
 
+// Result item for a file or folder. The alt action shows its folder.
 function fileItem(f) {
     return {
         id: `file:${f.uri}`,
@@ -309,6 +333,7 @@ function fileItem(f) {
     };
 }
 
+// Recently used files, kept up to date by monitoring the XBEL file.
 class RecentFiles {
     static key = 'launcher-files';
     static section = 'Recent Files';
@@ -366,6 +391,7 @@ class RecentFiles {
         });
     }
 
+    // Synchronous fallback, only used if a search comes before the background load.
     _loadNow() {
         try {
             return parseRecentFiles(new TextDecoder().decode(GLib.file_get_contents(XBEL)[1]));
@@ -390,6 +416,7 @@ class RecentFiles {
     }
 }
 
+// Shows the result of a calculation (see calculate() in match.js) at the very top.
 class Calculator {
     static key = 'launcher-calculator';
     static section = 'Calculator';
@@ -412,13 +439,16 @@ class Calculator {
     }
 }
 
+// Order here is the order in which sections appear when scores are equal.
 const SOURCES = [Calculator, Apps, Windows, SettingsPanels, System, RecentFiles];
 
+// Holds one instance of each source. See the lifecycle (warm/refresh/search) above.
 export class Sources {
     constructor() {
         this._sources = SOURCES.map(S => ({key: S.key, section: S.section, impl: new S()}));
     }
 
+    // Sources whose setting is turned on.
     enabled(settings) {
         return this._sources.filter(s => settings.get_boolean(s.key));
     }
@@ -439,6 +469,7 @@ export class Sources {
     }
 }
 
+// Fallback item that runs the typed text as a shell command.
 export function commandItem(command) {
     return {
         id: `command:${command}`,
@@ -454,6 +485,7 @@ export function commandItem(command) {
     };
 }
 
+// Fallback item that searches the web for the typed text; lowest score.
 export function webItem(raw) {
     const query = raw.trim();
     return {
@@ -470,6 +502,8 @@ export function webItem(raw) {
     };
 }
 
+// Rebuilds an item from an id saved in the history. Returns null if it no longer
+// exists (app uninstalled, file deleted).
 export function historyItem(id) {
     const sep = id.indexOf(':');
     const [key, value] = [id.slice(0, sep), id.slice(sep + 1)];

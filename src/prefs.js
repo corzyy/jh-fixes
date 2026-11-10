@@ -1,3 +1,5 @@
+// Preferences window entry point. The pages are declarative specs (see prefs/pages)
+// that prefs/ui/build.js turns into widgets.
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import shell from './prefs/pages/shell.js';
@@ -13,6 +15,7 @@ export default class JhFixesPreferences extends ExtensionPreferences {
         window.search_enabled = true;
         window.set_default_size(1060, 900);
 
+        // Context handed to every row builder.
         const ctx = {settings, window};
         const pages = [shell, quickSettings, appearance].map(spec => buildPage(spec, ctx));
         pages.forEach(page => window.add(page));

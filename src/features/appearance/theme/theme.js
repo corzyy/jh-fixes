@@ -1,3 +1,5 @@
+// Replaces the shell stylesheet with a generated one (see build.js) and reverts to
+// the previous one when disabled.
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
@@ -5,15 +7,19 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {buildCss} from './build.js';
 
+// Settings that change the generated stylesheet.
 const KEYS = ['shell-theme-panel', 'shell-theme-panel-solid', 'shell-theme-panel-shadow'];
 
 const STOCK_CSS = '/org/gnome/shell/theme/gnome-shell-dark.css';
 const EXTRA_CSS = GLib.uri_resolve_relative(import.meta.url, 'theme.css', GLib.UriFlags.NONE);
+// The generated stylesheet is cached on disk; STAMP records what it was built from.
 const OUTPUT = GLib.build_filenamev([GLib.get_user_cache_dir(), 'jh-fixes', 'gnome-shell.css']);
 const STAMP = `${OUTPUT}.stamp`;
 
+// Debounce for rapid setting changes (e.g. dragging a slider), in ms.
 const REBUILD_DELAY = 100;
 
+// File contents as a string, or null if unreadable.
 function readText(path) {
     try {
         return new TextDecoder().decode(GLib.file_get_contents(path)[1]);
@@ -22,6 +28,7 @@ function readText(path) {
     }
 }
 
+// Combine GNOME's own stylesheet (read from the shell's resources) with ours.
 function build(options) {
     const stock = new TextDecoder().decode(
         Gio.resources_lookup_data(STOCK_CSS, Gio.ResourceLookupFlags.NONE).toArray());
@@ -29,6 +36,7 @@ function build(options) {
     return buildCss(stock, new TextDecoder().decode(extra), options);
 }
 
+// Path of the stylesheet currently in use.
 const currentStylesheet = () => Main.getThemeStylesheet()?.get_path() ?? null;
 
 export class ShellTheme {
@@ -39,6 +47,8 @@ export class ShellTheme {
         this._loadedKey = null;
     }
 
+    // Other extensions can also replace the stylesheet, so re-check when any extension
+    // changes state.
     enable() {
         for (const key of KEYS)
             this._settings.connectObject(`changed::${key}`, () => this._queueSync(), this);
@@ -104,6 +114,7 @@ export class ShellTheme {
         this._loadedKey = key;
     }
 
+    // Only revert if our stylesheet is still the active one.
     _remove() {
         this._loadedKey = null;
         if (currentStylesheet() !== OUTPUT)

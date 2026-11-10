@@ -1,3 +1,8 @@
+// Application launcher: a popup that searches apps, files, windows and more (see
+// sources.js), plus an option to take over typing in the Overview search.
+//
+// This class owns the lifecycle: shortcut, Overview hook, shared state and the
+// single popup instance. The UI is in popup.js.
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
@@ -10,6 +15,8 @@ import {LauncherPopup} from './popup.js';
 import {Sources} from './sources.js';
 import {LauncherStyle} from './style.js';
 
+// Settings: keybinding, "type in the Overview opens the launcher", and "launcher popup
+// shortcut enabled".
 const SHORTCUT_KEY = 'launcher-shortcut';
 const OVERVIEW_KEY = 'launcher-overview-search';
 const POPUP_KEY = 'launcher-popup';
@@ -66,12 +73,14 @@ export class Launcher extends SettingTweak {
         }
     }
 
+    // Rows are built from app data, so they go stale when apps are installed or removed.
     _dropRows() {
         for (const row of this._rowPool.values())
             row.actor.destroy();
         this._rowPool.clear();
     }
 
+    // Tear everything down in reverse order of setup.
     _revert() {
         if (this._warmId)
             GLib.source_remove(this._warmId);
@@ -152,6 +161,7 @@ export class Launcher extends SettingTweak {
         this._overviewText = null;
     }
 
+    // The shortcut closes an open launcher, otherwise opens it with an empty query.
     _toggle() {
         if (this._popup) {
             this._popup.close();
@@ -160,6 +170,9 @@ export class Launcher extends SettingTweak {
         this._open('', {select: true});
     }
 
+    // Never open on the lock screen or login. The popup gets the shared sources and row
+    // pool and tells us when it is closed. From the Overview it behaves as an overlay
+    // that closes again when the query is emptied.
     _open(initialQuery, {select, fromOverview = false}) {
         if (Main.sessionMode.isLocked || Main.sessionMode.currentMode !== 'user')
             return;
