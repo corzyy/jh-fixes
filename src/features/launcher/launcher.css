@@ -1,5 +1,3 @@
-/* Launcher styles (dark, fixed colors matching the shell theme). */
-/* Dimmed backdrop and the dialog. */
 .jh-launcher-backdrop { background-color: rgba(0, 0, 0, 0.25); }
 .jh-launcher {
   background-color: #18181b;
@@ -8,7 +6,6 @@
   border: 1px solid rgba(250, 250, 251, 0.08);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   font-size: 11pt; }
-/* Search entry */
 .jh-launcher-header { padding: 14px 18px; spacing: 12px; }
 .jh-launcher-header-icon { color: rgba(250, 250, 251, 0.55); }
 .jh-launcher-entry, .jh-launcher-entry:focus, .jh-launcher-entry:hover {
@@ -20,7 +17,6 @@
   background-color: -st-accent-color; color: #ffffff; border-radius: 6px;
   padding: 2px 8px; font-size: 10pt; font-weight: bold; }
 .jh-launcher-separator { height: 1px; background-color: rgba(250, 250, 251, 0.08); }
-/* Result list (dialog layout) */
 .jh-launcher-list { padding: 6px; spacing: 1px; }
 .jh-launcher-section {
   color: rgba(250, 250, 251, 0.5); font-size: 10pt; font-weight: bold;
@@ -37,7 +33,6 @@
   color: rgba(250, 250, 251, 0.45); font-size: 9pt;
   background-color: rgba(250, 250, 251, 0.06); border-radius: 5px; padding: 1px 6px; }
 .jh-launcher-empty { color: rgba(250, 250, 251, 0.45); padding: 22px; }
-/* Footer with hints */
 .jh-launcher-footer {
   padding: 8px 14px; spacing: 10px; font-size: 10pt;
   background-color: rgba(250, 250, 251, 0.03);
@@ -48,7 +43,6 @@
   color: rgba(250, 250, 251, 0.7); background-color: rgba(250, 250, 251, 0.08);
   border-radius: 5px; padding: 1px 6px; font-size: 9pt; }
 
-/* Overview search: GNOME's "Search as Overlay" design */
 .jh-launcher-pill {
   background-color: #272a2e; color: #fafafb;
   border-radius: 999px; padding: 0 14px; spacing: 8px;
@@ -61,7 +55,6 @@
   border: none; border-radius: 28px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45); }
 .jh-launcher-overlay-content { padding: 24px; spacing: 24px; }
-/* Overlay layout: app tiles, calculator card, grouped lists, empty state */
 .jh-launcher-tiles { spacing: 6px; }
 .jh-launcher-tile {
   width: 110px; padding: 10px 0 8px 0; border-radius: 16px; color: #fafafb; }

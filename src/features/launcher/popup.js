@@ -1,9 +1,3 @@
-// The launcher UI: a search entry with a list of results, shown in a modal dialog.
-//
-// Two layouts share the code: a centered dialog (opened with the shortcut) and an
-// "overlay" that sits on the Overview's search entry (opened by typing there) with
-// app tiles and grouped lists. Result actors are expensive to build, so they live in
-// a pool shared between popups; see _row() and the rendering section.
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -18,49 +12,38 @@ import {ensureActorVisibleInScrollView} from 'resource:///org/gnome/shell/misc/a
 import {commandItem, historyItem, webItem} from './sources.js';
 import {fold} from './match.js';
 
-// Launched items are remembered (most recent first) and get a bonus in later searches.
 const HISTORY_KEY = 'launcher-history';
 const HISTORY_SIZE = 40;
-// Animation durations in ms.
 const OPEN_TIME = 120;
 
-// Shared constructor property for vertical boxes.
 const VERTICAL = {orientation: Clutter.Orientation.VERTICAL};
 
-// GNOME's "Search as Overlay" mockup (os-mockups/search/search-overlay.png).
 const OVERLAY_OPEN_TIME = 220;
 const OVERLAY_CLOSE_TIME = 140;
 const OVERLAY_GAP = 18;
 const OVERLAY_MARGIN = 32;
 const TILE_ICON = 64;
-const TILE_WIDTH = 116; // tile width + spacing, keep in sync with style.js
+const TILE_WIDTH = 116;
 const LIST_ICON = 40;
-// Icon of the small button on a list row that triggers the alternative action.
 const ROW_ACTION_ICONS = {
     Application: 'window-new-symbolic',
     File: 'folder-open-symbolic',
     Window: 'window-close-symbolic',
 };
 
-// Layout constants (logical pixels, multiplied by the scale factor where used).
 const WIDTH = 700;
 const VISIBLE_ROWS = 7;
-// Results shown per section.
 const MAX_RESULTS = 5;
 const ICON_SIZE = 32;
-// A query starting with this runs the rest as a shell command.
 const COMMAND_PREFIX = '>';
-const POOL_SIZE = 200; // result actors kept around, see _row()
+const POOL_SIZE = 200;
 
-// Sort comparator: highest score first.
 const byScore = (a, b) => b.score - a.score;
 
-// Keyboard hint label for the footer.
 function key(label) {
     return new St.Label({text: label, style_class: 'jh-launcher-key', y_align: Clutter.ActorAlign.CENTER});
 }
 
-// The first `count` items that are still there (files are only checked when shown).
 function take(items, count) {
     const taken = [];
     for (const item of items) {
@@ -73,12 +56,8 @@ function take(items, count) {
     return taken;
 }
 
-// Row builders by variant name; assigned at the bottom of the file.
 let BUILDERS;
 
-// Options: initialQuery (text to start with), selectQuery (select it, so typing
-// replaces it), closeWhenEmpty (close once the entry is emptied), overlay (use the
-// Overview layout) and onClosed (callback).
 export class LauncherPopup {
     constructor(settings, sources, rowPool, {initialQuery = '', selectQuery = true, closeWhenEmpty = false, overlay = false, onClosed}) {
         this._closeWhenEmpty = closeWhenEmpty;
@@ -102,9 +81,6 @@ export class LauncherPopup {
         this._buildUi(initialQuery, selectQuery);
     }
 
-    // Widget tree: backdrop (click outside closes) > dialog > header with the entry,
-    // list in a scroll view, footer with hints. In overlay mode the header is a separate
-    // pill and the footer is hidden.
     _buildUi(initialQuery, selectQuery) {
         const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
 
@@ -136,11 +112,9 @@ export class LauncherPopup {
             reactive: true,
         });
         this._backdrop.add_child(this._dialog);
-        // Result actors that aren't on screen right now, see _sync().
         this._attic = new Clutter.Actor({visible: false});
         this._backdrop.add_child(this._attic);
 
-        // Overlay: the entry is a separate pill sitting where the Overview's entry is.
         const header = new St.BoxLayout({
             style_class: this._overlay ? 'jh-launcher-pill' : 'jh-launcher-header',
             reactive: true,
@@ -214,7 +188,6 @@ export class LauncherPopup {
                 text.set_cursor_position(-1);
         }
         text.connect('text-changed', () => {
-            // Opened by typing in the Overview: deleting everything goes back to it, like GNOME's search.
             if (this._closeWhenEmpty && !this._entry.text) {
                 this._emptyIdleId ||= GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
                     this._emptyIdleId = 0;
@@ -227,7 +200,6 @@ export class LauncherPopup {
             this._queueUpdate();
         });
         text.connect('key-press-event', (_a, event) => this._onKey(event));
-        // With an input method (IBus) running, Enter usually arrives only as 'activate'.
         text.connect('activate', () => {
             this._flush();
             const [, , mods] = global.get_pointer();
@@ -241,7 +213,6 @@ export class LauncherPopup {
         });
     }
 
-    // Placeholder text listing what is searched, e.g. "Search apps, windows and files…".
     _hintText() {
         const parts = [];
         if (this._sources.some(s => s.section === 'Applications'))
@@ -256,18 +227,15 @@ export class LauncherPopup {
         return `Search ${parts.length ? `${parts.join(', ')} and ${last}` : last}…`;
     }
 
-    // Grab the keyboard and pointer (modal), then position and animate in.
     open() {
         Main.layoutManager.modalDialogGroup.add_child(this._backdrop);
         this._grab = Main.pushModal(this._backdrop, {actionMode: Shell.ActionMode.POPUP});
-        // The backdrop and placement are sized for the current monitors.
         Main.layoutManager.connectObject('monitors-changed', () => this.close(), this);
 
         this._update();
         this._place();
         this._entry.grab_key_focus();
         if (this._overlay) {
-            // Stay on top of the Overview's entry if it moves or resizes.
             Main.overview.searchEntry?.connectObject('notify::allocation', () => {
                 const box = this._overviewEntryBox();
                 if (box && (box.w !== this._header.width || box.h !== this._header.height ||
@@ -295,7 +263,6 @@ export class LauncherPopup {
     }
 
     _animateOverlayIn() {
-        // The results spring out of the search entry.
         const mode = Clutter.AnimationMode.EASE_OUT_QUINT;
         this._backdrop.opacity = 0;
         this._backdrop.ease({opacity: 255, duration: OPEN_TIME, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
@@ -311,8 +278,6 @@ export class LauncherPopup {
         });
     }
 
-    // Closes with an animation in overlay mode. _finish() runs right away so the grab and
-    // state are released before the fade is done.
     close() {
         if (this._closing || this._finished)
             return;
@@ -325,7 +290,6 @@ export class LauncherPopup {
             this._backdrop.destroy();
             return;
         }
-        // Hand control back right away; the fade-out is only cosmetic.
         this._finish();
         this._backdrop.reactive = false;
         this._dialog.remove_all_transitions();
@@ -342,7 +306,6 @@ export class LauncherPopup {
         });
     }
 
-    // Release everything that is not a widget (timers, signals, the grab), then notify.
     _finish() {
         if (this._finished)
             return;
@@ -364,22 +327,17 @@ export class LauncherPopup {
         this._onClosed?.(this);
     }
 
-    // Monitor the dialog is shown on: the focused one.
     _monitor() {
         const lm = Main.layoutManager;
         return lm.focusMonitor ?? lm.currentMonitor;
     }
 
-    // Position and size of the Overview's search entry in stage coordinates, or null.
     _overviewEntryBox() {
         try {
             const entry = Main.overview.searchEntry;
             if (!entry?.mapped)
                 return null;
             const [x, y] = entry.get_transformed_position();
-            // Not get_transformed_size(): the character that opened us has queued a
-            // relayout of the entry, and until that runs it reports the preferred size,
-            // which is taller than the entry ever gets.
             let [w, h] = entry.get_allocation_box().get_size();
             if (!(w > 0 && h > 0))
                 [w, h] = entry.get_transformed_size();
@@ -389,7 +347,6 @@ export class LauncherPopup {
         }
     }
 
-    // Overlay: the pill sits exactly on the Overview's entry and the dialog below it.
     _placeOverlay() {
         const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
         const m = Main.layoutManager.primaryMonitor ?? this._monitor();
@@ -404,7 +361,6 @@ export class LauncherPopup {
             y: m.y + Math.round(m.height * 0.08),
         };
         pill.x = box ? pill.x : m.x + Math.round((m.width - pill.w) / 2);
-        // Exactly over the Overview's entry, which it stands in for.
         this._header.set_size(pill.w, pill.h);
         this._header.set_position(pill.x, pill.y);
 
@@ -416,7 +372,6 @@ export class LauncherPopup {
         this._scroll.style = `max-height: ${this._overlayMaxHeight}px;`;
     }
 
-    // Centered mode: placed for the tallest the list can get so it does not jump.
     _place() {
         if (this._overlay) {
             this._placeOverlay();
@@ -428,7 +383,6 @@ export class LauncherPopup {
         const width = Math.min(this._dialog.width, m.width - 32);
         this._dialog.width = width;
         const x = m.x + Math.round((m.width - width) / 2);
-        // Centred for the tallest the list can get, so it doesn't jump while typing.
         const [, natural] = this._dialog.get_preferred_height(width);
         const [, list] = this._scroll.visible ? this._scroll.get_preferred_height(width) : [0, 0];
         const tallest = natural - list + this._listMaxHeight();
@@ -436,10 +390,8 @@ export class LauncherPopup {
         this._dialog.set_position(x, Math.max(m.y, y));
     }
 
-    // Height of a result row, measured once with a dummy row.
     _rowHeight() {
         if (!this._measuredRow) {
-            // Only measured, never shown or selectable.
             const probe = this._buildRowFor('row', {
                 title: 'Xy', subtitle: 'Xy', kind: '',
                 icon: size => new St.Icon({icon_size: size}),
@@ -455,12 +407,7 @@ export class LauncherPopup {
         return Math.round(this._rowHeight() * VISIBLE_ROWS + 14 * St.ThemeContext.get_for_stage(global.stage).scale_factor);
     }
 
-    // ---------- search ----------
 
-    // Runs the search and returns {mode, groups}, where groups is a list of
-    // [section title, items]. A query starting with ">" is a command (mode "Run"); an
-    // empty query shows history; otherwise every enabled source is searched, history
-    // bonuses are added, and sections are ordered by their best match.
     _collect() {
         const raw = this._entry.text;
 
@@ -500,7 +447,6 @@ export class LauncherPopup {
         return {mode: null, groups};
     }
 
-    // Results for an empty query: recently launched items, else the most used apps.
     _emptyGroups() {
         const limit = Math.max(VISIBLE_ROWS, MAX_RESULTS);
         if (this._historyIds.length) {
@@ -522,7 +468,6 @@ export class LauncherPopup {
         return items.length ? [['Suggestions', items]] : [];
     }
 
-    // Text changes are coalesced into one search per frame.
     _queueUpdate() {
         if (this._laterId)
             return;
@@ -533,7 +478,6 @@ export class LauncherPopup {
         });
     }
 
-    // Anything that acts on the results runs the pending search first.
     _flush() {
         if (!this._laterId)
             return;
@@ -542,7 +486,6 @@ export class LauncherPopup {
         this._update();
     }
 
-    // Re-run the search and refresh the list, footer and selection.
     _update() {
         const {mode, groups} = this._collect();
         this._modeChip.visible = !!mode;
@@ -582,22 +525,13 @@ export class LauncherPopup {
                 : '';
         }
 
-        // New results start at the top; kept rows still have last frame's allocation,
-        // so scrolling to the selection here would aim at where it used to be.
         const {vadjustment} = this._scroll;
         vadjustment.remove_transition('value');
         vadjustment.value = vadjustment.lower;
         this._select(hasRows ? 0 : -1, false);
     }
 
-    // ---------- rendering ----------
-    //
-    // Building a result's actors is what costs time, so they are built once and then
-    // only moved around: a keystroke that narrows the results builds nothing, and
-    // neither does searching for the same thing in a later popup (see _release()).
 
-    // Makes `actors` the children of `container`, touching only what differs.
-    // Dropped children are parked in the attic rather than destroyed.
     _sync(container, actors) {
         const keep = new Set(actors);
         for (const child of container.get_children()) {
@@ -616,7 +550,6 @@ export class LauncherPopup {
         });
     }
 
-    // Keep the row pool bounded; only rows that are not on screen are dropped.
     _trimCache() {
         if (this._pool.size <= POOL_SIZE)
             return;
@@ -628,7 +561,6 @@ export class LauncherPopup {
         }
     }
 
-    // Clear the transient state (selection, hover, shortcut hint) of a pooled row.
     static _resetRow(row) {
         const {actor} = row;
         actor.remove_style_class_name('selected');
@@ -637,7 +569,6 @@ export class LauncherPopup {
         row.hint.visible = false;
     }
 
-    // Hands this popup's rows back to the pool before its actors are destroyed.
     _release() {
         for (const row of this._pool.values()) {
             if (row.owner !== this)
@@ -649,14 +580,11 @@ export class LauncherPopup {
         }
     }
 
-    // Hover only selects after the pointer actually moved, so a list that appears under a
-    // stationary pointer does not steal the selection.
     _onRowHover(row) {
         if (this._pointerMoved && row.index >= 0)
             this._select(row.index, false);
     }
 
-    // Shift-click triggers the alternative action, like Shift+Enter.
     _onRowClicked(row, alt) {
         if (row.index < 0)
             return;
@@ -664,18 +592,15 @@ export class LauncherPopup {
         this._activate(row.index, alt || (mods & Clutter.ModifierType.SHIFT_MASK) !== 0);
     }
 
-    // The actor for a result, registered for keyboard selection, hover and click.
     _row(variant, item) {
         const key = `${variant}:${item.key ?? item.id ?? item.title}:${item.subtitle ? 1 : 0}${item.altAction ? 1 : 0}`;
         let row = this._pool.get(key);
         if (row && row.owner === this && row.index >= 0) {
-            // Same result twice in one list: the second one gets its own actor.
             row = this._buildRowFor(variant, item);
         } else if (!row) {
             row = this._buildRowFor(variant, item);
             this._pool.set(key, row);
         } else {
-            // Still in a popup that is fading out: take it, we need it more.
             if (row.owner && row.owner !== this)
                 LauncherPopup._resetRow(row);
             if (row.item.title !== item.title)
@@ -694,8 +619,6 @@ export class LauncherPopup {
         return row.actor;
     }
 
-    // Builds a result row of the given variant (see BUILDERS). The returned row object
-    // holds the actor and references to the labels needed for later updates.
     _buildRowFor(variant, item) {
         const row = {
             owner: null, item, index: -1, hintIndex: -1,
@@ -705,7 +628,6 @@ export class LauncherPopup {
         };
         BUILDERS[variant].call(this, row, item);
         const {actor} = row;
-        // Rows outlive the popup that built them, so they talk to their current one.
         actor.connect('notify::hover', () => {
             if (actor.hover)
                 row.owner?._onRowHover(row);
@@ -714,14 +636,12 @@ export class LauncherPopup {
         return row;
     }
 
-    // Single-line label that ellipsizes.
     _label(text, style_class, props = {}) {
         const label = new St.Label({text, style_class, ...props});
         label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
         return label;
     }
 
-    // Dialog layout: section headings followed by flat rows.
     _layoutList(groups) {
         const children = [];
         for (const [section, items] of groups) {
@@ -737,7 +657,6 @@ export class LauncherPopup {
         return children;
     }
 
-    // The "No results" message; built once and reused.
     _emptyState() {
         if (this._empty)
             return this._empty;
@@ -770,10 +689,8 @@ export class LauncherPopup {
         return empty;
     }
 
-    // ---------- overlay layout ----------
 
     _overlayOrder(groups) {
-        // Like the mockup: app tiles first, then the calculator, then the lists.
         const rank = ([section]) => section === 'Applications' ? 0 : section === 'Calculator' ? 1 : 2;
         return groups
             .map((g, i) => [g, i])
@@ -781,14 +698,12 @@ export class LauncherPopup {
             .map(([g]) => g);
     }
 
-    // How many app tiles fit next to each other.
     _tilesPerRow() {
         const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
         const inner = this._dialog.width - 48 * scale;
         return Math.max(3, Math.floor(inner / (TILE_WIDTH * scale)));
     }
 
-    // Overlay layout: app tiles in a row, calculator as a card, other sections as boxed lists.
     _layoutOverlay(groups) {
         const children = [];
         for (const [section, items] of this._overlayOrder(groups)) {
@@ -810,7 +725,6 @@ export class LauncherPopup {
         return children;
     }
 
-    // Overlay variant: app icon with name below.
     _buildTile(row, item) {
         const tile = new St.Button({
             style_class: 'jh-launcher-tile',
@@ -829,7 +743,6 @@ export class LauncherPopup {
         row.actor = tile;
     }
 
-    // Overlay variant: wide card, used for the calculator result.
     _buildCard(row, item) {
         const card = new St.Button({
             style_class: 'jh-launcher-card',
@@ -860,14 +773,12 @@ export class LauncherPopup {
         row.actor = card;
     }
 
-    // Optional button in a section header: [label, uri to open].
     _sectionAction(section) {
         if (section === 'Recent Files')
             return ['Show in Files', 'recent:///'];
         return null;
     }
 
-    // Boxed list for one section, created on first use.
     _section(section, items) {
         let group = this._sections.get(section);
         if (!group) {
@@ -910,7 +821,6 @@ export class LauncherPopup {
         return {box, list};
     }
 
-    // Title with optional subtitle.
     _buildText(row, item) {
         const text = new St.BoxLayout({...VERTICAL, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         row.title = this._label(item.title, 'jh-launcher-title');
@@ -922,7 +832,6 @@ export class LauncherPopup {
         return text;
     }
 
-    // Overlay variant: row of a boxed list, with an optional button for the alt action.
     _buildListRow(row, item) {
         const button = new St.Button({
             style_class: 'jh-launcher-boxed-row',
@@ -933,7 +842,6 @@ export class LauncherPopup {
         const box = new St.BoxLayout({style_class: 'jh-launcher-row-box', x_expand: true});
         button.child = box;
 
-        // Apps get their full-colour icon; everything else a small icon on a tile.
         const plain = ['File', 'System', 'Web', 'Command'].includes(item.kind);
         const frame = new St.Bin({
             style_class: plain ? 'jh-launcher-thumb symbolic' : 'jh-launcher-thumb',
@@ -963,7 +871,6 @@ export class LauncherPopup {
         row.actor = button;
     }
 
-    // Dialog variant: icon, text and the kind of result on the right.
     _buildRow(row, item) {
         const button = new St.Button({
             style_class: 'jh-launcher-row',
@@ -991,7 +898,6 @@ export class LauncherPopup {
         row.actor = button;
     }
 
-    // Select a row (by index into the current results) and update the footer.
     _select(index, scroll = true) {
         const row = this._rows[index] ?? null;
         if (row !== this._selectedRow) {
@@ -1005,7 +911,6 @@ export class LauncherPopup {
         this._syncFooter(row?.item);
     }
 
-    // Footer shows what Enter (and Shift+Enter) will do for the selected item.
     _syncFooter(item) {
         this._actionLabel.text = item?.action ?? '';
         this._actionLabel.visible = this._actionKey.visible = !!item && !item.disabled;
@@ -1013,7 +918,6 @@ export class LauncherPopup {
         this._altLabel.visible = this._altKey.visible = !!item?.altAction;
     }
 
-    // Move the selection; wraps around unless `wrap` is false (paging).
     _move(delta, wrap = true) {
         this._flush();
         const n = this._rows.length;
@@ -1027,15 +931,11 @@ export class LauncherPopup {
         this._select(next);
     }
 
-    // Holding Alt shows "Alt 1..9" hints on the first nine rows.
     _showQuickHints(show) {
-        // Hiding covers parked rows too, so none comes back with its hint showing.
         for (const row of show ? this._rows : this._pool.values())
             row.hint.visible = show && row.index >= 0 && row.index < 9;
     }
 
-    // Keys: Esc closes, Up/Down/Tab/Shift+Tab and Ctrl+N/P/J/K move, Page Up/Down page,
-    // Enter activates (Shift: alternative action), Alt+1..9 activates that row.
     _onKey(event) {
         const sym = event.get_key_symbol();
         const state = event.get_state();
@@ -1098,7 +998,6 @@ export class LauncherPopup {
         return Clutter.EVENT_PROPAGATE;
     }
 
-    // Moves the item to the front of the history.
     _remember(id) {
         if (!id)
             return;
@@ -1107,8 +1006,6 @@ export class LauncherPopup {
         this._settings.set_strv(HISTORY_KEY, ids.slice(0, HISTORY_SIZE));
     }
 
-    // Remembers and closes first, then runs the item. System actions are deferred to
-    // idle so that the popup is gone when they run. Errors are shown as a notification.
     _activate(index, alt) {
         const row = this._rows[index];
         if (this._closing || !row || row.item.disabled)
@@ -1138,7 +1035,6 @@ export class LauncherPopup {
     }
 }
 
-// Defined after the class because it refers to its methods.
 BUILDERS = {
     row: LauncherPopup.prototype._buildRow,
     listRow: LauncherPopup.prototype._buildListRow,

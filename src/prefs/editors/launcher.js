@@ -1,4 +1,3 @@
-// Row to clear the launcher history.
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 

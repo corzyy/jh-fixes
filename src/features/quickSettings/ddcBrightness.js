@@ -1,6 +1,3 @@
-// Brightness slider for external monitors in Quick Settings, using DDC/CI through
-// ddcutil (see lib/ddc.js). The main slider controls all monitors together; the
-// menu has one slider per monitor.
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -14,21 +11,15 @@ import * as Ddc from '../../lib/ddc.js';
 import {whenQuickSettingsReady} from '../../lib/shell.js';
 import {SettingTweak} from '../../lib/tweak.js';
 
-// Wait after a monitor change before detecting, since ddcutil needs the displays to settle.
 const REDETECT_DELAY_MS = 3000;
 
-// Values can change on the monitor itself. Read them back when the menu is opened, at
-// most this often; if no monitor was found, retry detection at most this often.
 const READ_BACK_INTERVAL_US = 15 * GLib.USEC_PER_SEC;
 const RETRY_DETECT_INTERVAL_US = 60 * GLib.USEC_PER_SEC;
 
-// Title of the menu header.
 const TITLE = 'Monitor Brightness';
 
-// Brightness levels are fractions between 0 and 1.
 const clamp01 = v => Math.min(1, Math.max(0, v));
 
-// Detect output looks like "Mfg:Model:Serial"; use the model part for the label.
 function modelOf(name) {
     const parts = name.split(':');
     return (parts.length >= 2 && parts[1].trim()) || name || '';
@@ -38,9 +29,6 @@ export class DdcBrightness extends SettingTweak {
     static KEY = 'ddc-brightness';
     static DEFAULT = false;
 
-    // Per-display state: {bus, name, connector, max, sent, target, running, slider}.
-    // `sent` is the raw value last written (or read), `target` the level the user asked
-    // for (fraction), `running` whether a write loop is active.
     _apply() {
         this._cancellable = new Gio.Cancellable();
         this._displays = [];
@@ -65,7 +53,6 @@ export class DdcBrightness extends SettingTweak {
         global.backend.get_monitor_manager().disconnectObject(this);
         this._qs?.menu.disconnectObject(this);
         this._qs = null;
-        // GNOME doesn't destroy an item's menu with it; it would stay in the overlay.
         this._item?.menu.close(false);
         this._item?.menu.destroy();
         this._item?.destroy();
@@ -76,8 +63,6 @@ export class DdcBrightness extends SettingTweak {
         this._detecting = null;
     }
 
-    // Create the slider item (hidden until a monitor is found) and insert it right after
-    // the built-in brightness slider.
     _attach(qs) {
         this._qs = qs;
         this._item = new QuickSlider({
@@ -86,13 +71,11 @@ export class DdcBrightness extends SettingTweak {
             visible: false,
         });
         this._item.slider.accessible_name = 'External Monitor Brightness';
-        // Lets items.js recognise this as our item when arranging the menu.
         this._item._jhFixesId = 'ddc-brightness';
         this._item.slider.connect('notify::value', () => {
             if (!this._updating)
                 this._onMainMoved(this._item.slider.value);
         });
-        // A new drag on the main slider starts from the monitors' current levels.
         this._item.slider.connect('drag-begin', () => (this._mainBase = null));
 
         this._item.menu.setHeader('display-brightness-symbolic', TITLE);
@@ -103,8 +86,6 @@ export class DdcBrightness extends SettingTweak {
         const sibling = own?.get_parent() === qs.menu._grid ? own.get_next_sibling() : null;
         qs.menu.insertItemBefore(this._item, sibling, 2);
 
-        // Refresh from the monitors when the menu opens (they may have been changed by their
-        // own buttons).
         qs.menu.connectObject('open-state-changed', (_menu, open) => {
             if (!open)
                 return;
@@ -122,7 +103,6 @@ export class DdcBrightness extends SettingTweak {
         this._detect();
     }
 
-    // Hotplugging a monitor: detect again after a short delay.
     _scheduleDetect() {
         if (this._redetectId)
             GLib.source_remove(this._redetectId);
@@ -133,7 +113,6 @@ export class DdcBrightness extends SettingTweak {
         });
     }
 
-    // One detection at a time.
     _detect() {
         if (this._detecting)
             return;
@@ -150,8 +129,6 @@ export class DdcBrightness extends SettingTweak {
         this._detecting = run;
     }
 
-    // Detect monitors, then read the brightness of each in parallel. Monitors that do not
-    // support it are skipped. Known displays keep their state if still present.
     async _detectOnce(cancellable) {
         this._lastRead = GLib.get_monotonic_time();
         let found;
@@ -197,9 +174,6 @@ export class DdcBrightness extends SettingTweak {
         this._showValues();
     }
 
-    // One labelled slider per monitor. If two monitors have the same model, the
-    // connector is added to tell them apart. With a single monitor the menu stays
-    // disabled; the main slider is enough.
     _buildMenu() {
         this._section.removeAll();
         const models = this._displays.map(d => modelOf(d.name));
@@ -233,14 +207,12 @@ export class DdcBrightness extends SettingTweak {
             this._item.menu.close();
     }
 
-    // Avoid repeating the same warning on every retry.
     _warnOnce(message) {
         if (message !== this._lastWarning)
             console.warn(`jh-fixes: ${message}`);
         this._lastWarning = message;
     }
 
-    // Skip displays that are being written to; their state is newer than what we would read.
     async _readBack() {
         const cancellable = this._cancellable;
         this._lastRead = GLib.get_monotonic_time();
@@ -264,7 +236,6 @@ export class DdcBrightness extends SettingTweak {
         this._showValues();
     }
 
-    // Current level as a fraction: the pending target if there is one, else the last value.
     _levelOf(display) {
         return display.target ?? display.sent / display.max;
     }
@@ -273,7 +244,6 @@ export class DdcBrightness extends SettingTweak {
         return this._displays.reduce((sum, d) => sum + this._levelOf(d), 0) / this._displays.length;
     }
 
-    // Move the sliders to the stored levels without triggering writes.
     _showValues(skipMain = false) {
         this._updating = true;
         try {
@@ -288,8 +258,6 @@ export class DdcBrightness extends SettingTweak {
         }
     }
 
-    // Moving the main slider shifts every monitor by the same amount relative to where
-    // it started, so different levels are preserved. At the ends all monitors snap to 0/1.
     _onMainMoved(value) {
         if (!this._mainBase) {
             this._mainBase = {
@@ -306,7 +274,6 @@ export class DdcBrightness extends SettingTweak {
         this._showValues(true);
     }
 
-    // Moving a single monitor's slider; the main slider follows the average.
     _onMonitorMoved(display, value) {
         display.target = value;
         this._mainBase = null;
@@ -314,8 +281,6 @@ export class DdcBrightness extends SettingTweak {
         this._showValues();
     }
 
-    // Writes to a monitor are slow (hundreds of ms), so never queue them: one loop per
-    // monitor keeps sending the latest target until it has been reached.
     async _pump(display) {
         if (display.running || display.target === null)
             return;

@@ -1,11 +1,8 @@
-// Shell page: Overview, windows, Alt+Tab and launcher.
 import {choice, custom, group, link, number, shortcut, toggle} from '../ui/build.js';
 import {launcherHistory} from '../editors/launcher.js';
 
-// Label for 0, which means "let GNOME decide" for the app grid.
 const auto = v => (v === 0 ? 'Automatic' : `${v}`);
 
-// Subpage listing what the launcher searches.
 const launcherSources = () => ({
     title: 'Launcher Search',
     groups: [

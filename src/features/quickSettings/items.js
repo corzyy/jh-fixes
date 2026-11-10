@@ -1,10 +1,3 @@
-// Rearranges the Quick Settings menu: hide items, reorder them, change their width and
-// the number of columns.
-//
-// Everything works by first restoring the stock layout (_restoreStock) and then
-// applying the saved configuration on top (_arrange, _hideItems, _hideButtons), so
-// the result never depends on what a previous pass did. Items added by other
-// extensions are found in the grid and published to the prefs window.
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -14,13 +7,8 @@ import {
     EXTERNAL_PREFIX, KEYS, arrange, rankOf, spanFor,
 } from '../../lib/quickSettingsCatalog.js';
 
-// The preferences window runs in a separate process. Its D-Bus name tells us whether
-// it is open, so the (comparatively expensive) list of present items is only
-// published while someone is looking at it.
 const PREFS_BUS_NAME = 'org.gnome.Shell.Extensions';
 
-// Where the shell keeps each built-in item. A finder may return one item, an array
-// or nothing (when the item does not exist on this machine).
 const FINDERS = {
     'system': qs => qs._system?.quickSettingsItems,
     'volume-output': qs => qs._volumeOutput?._output,
@@ -42,7 +30,6 @@ const FINDERS = {
     'background-apps': qs => qs._backgroundApps?.quickSettingsItems,
 };
 
-// Buttons of the top row, identified by the class name of the shell's widget.
 const BUTTON_CLASSES = {
     'button-battery': 'PowerToggle',
     'button-screenshot': 'ScreenshotItem',
@@ -51,7 +38,6 @@ const BUTTON_CLASSES = {
     'button-power': 'ShutdownItem',
 };
 
-// Best-effort icon name of an arbitrary Quick Settings item; empty if none is found.
 function iconOf(item) {
     const candidates = [
         item.gicon?.get_names?.()?.[0],
@@ -63,7 +49,6 @@ function iconOf(item) {
     return candidates.find(c => typeof c === 'string' && c) ?? '';
 }
 
-// Best-effort display title of an arbitrary item; falls back to its class name.
 function titleOf(item) {
     const candidates = [
         item.title,
@@ -76,7 +61,6 @@ function titleOf(item) {
         item.constructor.name;
 }
 
-// Narrower than the full grid means tile; otherwise slider or row.
 function kindOf(item, span, columns) {
     if (span < columns)
         return 'tile';
@@ -95,19 +79,15 @@ export class QuickSettingsItems {
         this._prefsWatchId = 0;
         this._prefsOpen = false;
 
-        // Per item: {id, seen, span}. `seen` is the order in which we first saw it and
-        // `span` is its stock column span, recorded before we change anything.
         this._info = new Map();
         this._seenCount = 0;
         this._stockColumns = 2;
 
-        // What _hideItems/_hideButtons took out, kept so _restoreStock can put it back.
         this._removedItems = new Map();
         this._removedButtons = [];
         this._spacer = null;
     }
 
-    // Any change to the layout settings re-runs the whole arrangement.
     enable() {
         const queue = () => this._queueSync();
         this._settings.connectObject(
@@ -117,7 +97,6 @@ export class QuickSettingsItems {
             `changed::${KEYS.columns}`, queue,
             this);
 
-        // Start publishing the present items when the prefs window appears on the bus.
         this._prefsWatchId = Gio.bus_watch_name(Gio.BusType.SESSION, PREFS_BUS_NAME,
             Gio.BusNameWatcherFlags.NONE,
             () => {
@@ -126,7 +105,6 @@ export class QuickSettingsItems {
             },
             () => (this._prefsOpen = false));
 
-        // The menu is filled in after login; wait until it is complete.
         this._cancelWait = whenQuickSettingsReady(qs => {
             this._qs = qs;
             this._grid = qs.menu._grid;
@@ -165,7 +143,6 @@ export class QuickSettingsItems {
         this._grid = null;
     }
 
-    // Coalesce several triggers (settings, grid changes) into one sync on idle.
     _queueSync() {
         if (this._busy || this._syncId || !this._grid)
             return;
@@ -176,7 +153,6 @@ export class QuickSettingsItems {
         });
     }
 
-    // Visibility of items changes often (e.g. Bluetooth); debounce publishing it.
     _queuePresent() {
         if (this._presentId || !this._prefsOpen)
             return;
@@ -187,7 +163,6 @@ export class QuickSettingsItems {
         });
     }
 
-    // Ignore removals we caused ourselves (`_busy`); otherwise the item is gone for good.
     _onChildRemoved(child) {
         if (this._busy)
             return;
@@ -196,7 +171,6 @@ export class QuickSettingsItems {
         this._queueSync();
     }
 
-    // Full re-layout: stock first, then the user configuration.
     _sync() {
         if (!this._grid)
             return;
@@ -216,7 +190,6 @@ export class QuickSettingsItems {
         }
     }
 
-    // The grid's children without the drag-and-drop placeholder overlay.
     _gridItems() {
         const placeholder = this._grid.layout_manager._overlay;
         return this._grid.get_children().filter(c => c !== placeholder);
@@ -226,10 +199,6 @@ export class QuickSettingsItems {
         this._grid.layout_manager.child_set_property(this._grid, item, 'column-span', span);
     }
 
-    // Gives every grid item a stable id and returns the items.
-    // 1. Built-in items via FINDERS.
-    // 2. Items we tagged or identified earlier.
-    // 3. Anything else is from another extension: `ext:<ClassName>`, numbered if repeated.
     _identify() {
         const ids = new Map();
         for (const [id, find] of Object.entries(FINDERS)) {
@@ -273,7 +242,6 @@ export class QuickSettingsItems {
         return items;
     }
 
-    // Items in the order GNOME would place them: by catalog rank, then by first sight.
     _stockOrder(items) {
         return [...items].sort((a, b) => {
             const ia = this._info.get(a), ib = this._info.get(b);
@@ -281,8 +249,6 @@ export class QuickSettingsItems {
         });
     }
 
-    // Undo everything we did: reinsert removed buttons at their old position, put hidden
-    // items back and restore the stock order, spans and column count.
     _restoreStock() {
         for (const {item, snapshot} of this._removedButtons.reverse()) {
             const box = snapshot.parent;
@@ -311,8 +277,6 @@ export class QuickSettingsItems {
         this._grid.layout_manager.n_columns = this._stockColumns;
     }
 
-    // Apply column count, saved order and widths. Items not in the saved order (e.g. newly
-    // installed extensions) are slotted in by arrange().
     _arrange() {
         const columns = this._settings.get_int(KEYS.columns);
         const order = this._settings.get_strv(KEYS.order);
@@ -332,8 +296,6 @@ export class QuickSettingsItems {
         });
     }
 
-    // Hidden items are removed from the grid rather than made invisible, so they leave
-    // no gap. If one is destroyed while removed, forget it.
     _hideItems(hidden) {
         for (const item of this._gridItems()) {
             if (!hidden.has(this._info.get(item)?.id))
@@ -347,9 +309,6 @@ export class QuickSettingsItems {
         }
     }
 
-    // Same for the buttons in the top row. The shell has no list of them, so they are
-    // matched by class name; each removal records a snapshot of the sibling order for
-    // _restoreStock.
     _hideButtons(hidden) {
         const systemItem = this._qs._system?._systemItem;
         const box = systemItem?.child;
@@ -367,8 +326,6 @@ export class QuickSettingsItems {
             this._removedButtons.push({item, snapshot});
         }
 
-        // Without the battery indicator the stock spacer would leave the buttons off-center;
-        // replace it with a flexible spacer of our own.
         const {_laptopSpacer: laptopSpacer, _desktopSpacer: desktopSpacer} = systemItem;
         const battery = byClass.get('PowerToggle');
         if (!hidden.has('button-battery') || !battery?.visible ||
@@ -381,9 +338,6 @@ export class QuickSettingsItems {
         box.insert_child_above(this._spacer, desktopSpacer);
     }
 
-    // Tells the prefs window about items from other extensions (title, icon, kind), so
-    // they can be configured too. Entries are kept even when the extension is not
-    // loaded right now.
     _publishExternal() {
         const old = this._settings.get_value(KEYS.known).deepUnpack();
         const icons = this._settings.get_value(KEYS.knownIcons).deepUnpack();
@@ -417,8 +371,6 @@ export class QuickSettingsItems {
             this._settings.set_value(KEYS.known, new GLib.Variant('a{ss}', known));
     }
 
-    // Publishes which items are currently visible so prefs can hide options that do not
-    // apply to this machine.
     _publishPresent() {
         if (!this._prefsOpen || !this._grid)
             return;

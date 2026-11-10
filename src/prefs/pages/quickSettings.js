@@ -1,9 +1,7 @@
-// Quick Settings page. Subpages are built on demand when their link is opened.
 import {custom, customGroups, group, link, number, toggle} from '../ui/build.js';
 import {backgroundAppsRow, menuItemsGroup, topRowGroup} from '../editors/quickSettingsItems.js';
 import {deviceGroup} from '../editors/soundDevices.js';
 
-// Link target: a page with a single group built by `build(settings)`.
 const subpage = (title, build) => ({settings}) =>
     ({title, groups: [customGroups(() => build(settings))]});
 

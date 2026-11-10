@@ -1,25 +1,18 @@
-// Rename and hide devices in the sound output/input menus of Quick Settings.
 import GLib from 'gi://GLib';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {whenReady} from '../../lib/shell.js';
 
-// The shell's own label for a device.
 function defaultLabel(device) {
     const {description, origin} = device;
     return origin ? `${description} – ${origin}` : description;
 }
 
-// Stable key for a device. The numeric id changes between sessions, description and
-// origin do not.
 function deviceKey(device) {
     return `${device.description}|${device.origin ?? ''}`;
 }
 
-// Shared implementation for outputs and inputs. Subclasses provide KIND, ACTIVE_SIGNAL,
-// _findSlider() and _activeStream(). Known devices are published to settings so
-// the prefs window can list them even when they are unplugged.
 class DeviceMenuTweak {
     constructor(settings) {
         this._settings = settings;
@@ -51,7 +44,6 @@ class DeviceMenuTweak {
         this._detach();
     }
 
-    // The slider rebuilds its device list in _sync(); re-apply our changes after each run.
     _attach(slider) {
         this._slider = slider;
         const self = this;
@@ -64,7 +56,6 @@ class DeviceMenuTweak {
         this._apply();
     }
 
-    // Restore labels and visibility, then let the shell rebuild the menu.
     _detach() {
         const slider = this._slider;
         if (!slider)
@@ -83,8 +74,6 @@ class DeviceMenuTweak {
         slider._sync();
     }
 
-    // Apply custom names and hide devices. The active device always stays visible, and
-    // the menu is only enabled if there is more than one choice.
     _apply() {
         const slider = this._slider;
         if (!slider)
@@ -125,7 +114,6 @@ class DeviceMenuTweak {
     }
 }
 
-// Speakers, headphones, ...
 export class OutputDevices extends DeviceMenuTweak {
     static KIND = 'output';
     static ACTIVE_SIGNAL = 'active-output-update';
@@ -139,7 +127,6 @@ export class OutputDevices extends DeviceMenuTweak {
     }
 }
 
-// Microphones.
 export class InputDevices extends DeviceMenuTweak {
     static KIND = 'input';
     static ACTIVE_SIGNAL = 'active-input-update';

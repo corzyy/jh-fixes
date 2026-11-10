@@ -1,6 +1,3 @@
-/* Appended to GNOME's stock dark stylesheet (see build.js); the greys of the stock */
-/* stylesheet are recoloured separately. */
-/* Sliders */
 .slider {
   color: #f4f4f5;
   -barlevel-height: 6px;
@@ -29,14 +26,12 @@
   .quick-slider .slider-bin:focus {
     box-shadow: none !important;
     background-color: rgba(255, 255, 255, 0.04); }
-/* Switches */
 .toggle-switch {
   background: rgba(255, 255, 255, 0.08); }
   .toggle-switch:hover {
     background: rgba(255, 255, 255, 0.12); }
   .toggle-switch .handle {
     box-shadow: none; }
-/* Menus */
 .popup-menu-content, .candidate-popup-content {
   border: none;
   border-radius: 20px;
@@ -44,7 +39,6 @@
 
 .popup-separator-menu-item .popup-separator-menu-item-separator {
   background-color: rgba(255, 255, 255, 0.06); }
-/* Quick Settings */
 .quick-settings {
   padding: 16px;
   border-radius: 28px; }
@@ -100,7 +94,6 @@
   padding-left: 4px;
   padding-right: 4px; }
 
-/* Dash */
 #dash .dash-background {
   background-color: #262629;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -157,7 +150,6 @@
   margin-bottom: 6px; }
 #dashtodockContainer.left #dash .dash-background { margin-left: 6px; }
 #dashtodockContainer.right #dash .dash-background { margin-right: 6px; }
-/* Calendar and notifications */
 .datemenu-popover {
   border-radius: 28px; }
 
@@ -214,7 +206,5 @@
 
 .message-list .message-list-placeholder {
   color: rgba(255, 255, 255, 0.25); }
-/* Volume and brightness popups: a rounded rectangle instead of GNOME's pill. */
-/* On-screen displays */
 .osd-window {
   border-radius: 20px; }

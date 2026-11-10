@@ -1,5 +1,3 @@
-// Per-application volume sliders in the sound output menu of Quick Settings, one row
-// per app that is currently playing audio.
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
@@ -16,7 +14,6 @@ import {Slider} from 'resource:///org/gnome/shell/ui/slider.js';
 import {whenReady} from '../../lib/shell.js';
 import {SettingTweak} from '../../lib/tweak.js';
 
-// Volume control apps; they would only list themselves.
 const SKIPPED_APPS = new Set([
     'org.gnome.VolumeControl',
     'org.PulseAudio.pavucontrol',
@@ -26,12 +23,10 @@ const SKIPPED_APPS = new Set([
 const FALLBACK_ICON = 'application-x-executable';
 const ICON_SIZE = 24;
 
-// Lowercase alphanumerics only, so "Google Chrome" and "google-chrome" compare equal.
 function normalize(text) {
     return (text ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-// Names an app may go by in a stream: display name, desktop id and executable.
 function appNames(app) {
     const info = app.get_app_info();
     const id = app.get_id()?.replace(/\.desktop$/, '') ?? '';
@@ -44,8 +39,6 @@ function appNames(app) {
     ].map(normalize).filter(Boolean);
 }
 
-// Finds the desktop app behind an audio stream: first by the application id the
-// stream reports, then by comparing its name with running and installed apps.
 function findApp(stream) {
     const appSystem = Shell.AppSystem.get_default();
     const id = stream.application_id;
@@ -68,7 +61,6 @@ function findApp(stream) {
         null;
 }
 
-// The lookup scans every installed app, so remember the result per stream identity.
 const appCache = new Map();
 
 function findAppCached(stream) {
@@ -78,14 +70,12 @@ function findAppCached(stream) {
     return appCache.get(key);
 }
 
-// Volume (fraction of 100%) used when unmuting a stream whose volume is 0.
 const UNMUTE_DEFAULT_VOLUME = 0.25;
 
 export class AppVolumes extends SettingTweak {
     static KEY = 'sound-app-volumes';
     static DEFAULT = false;
 
-    // The sound slider is created lazily after login.
     _apply() {
         this._cancelWait = whenReady(
             () => Main.panel.statusArea.quickSettings?._volumeOutput?._output,
@@ -99,7 +89,6 @@ export class AppVolumes extends SettingTweak {
         this._detach();
     }
 
-    // Insert an "Applications" section into the output slider's menu, below the device list.
     _attach(slider) {
         this._slider = slider;
         this._control = slider._control;
@@ -123,7 +112,6 @@ export class AppVolumes extends SettingTweak {
         this._addAll();
     }
 
-    // Remove the section and let the shell recompute whether the menu is enabled.
     _detach() {
         const slider = this._slider;
         if (!slider)
@@ -143,7 +131,6 @@ export class AppVolumes extends SettingTweak {
         slider._sync();
     }
 
-    // Pick up streams that already exist when the mixer becomes ready.
     _addAll() {
         if (this._control.get_state() !== Gvc.MixerControlState.READY)
             return;
@@ -151,8 +138,6 @@ export class AppVolumes extends SettingTweak {
             this._addStream(stream.id);
     }
 
-    // Only real application playback streams get a row: no event sounds (system beeps),
-    // no virtual streams, no volume control apps.
     _addStream(id) {
         if (this._rows.has(id))
             return;
@@ -178,7 +163,6 @@ export class AppVolumes extends SettingTweak {
         this._syncRows();
     }
 
-    // A row: mute button with the app icon, and the name above a volume slider.
     _makeRow(stream) {
         const control = this._control;
         const item = new PopupMenu.PopupBaseMenuItem({
@@ -209,11 +193,9 @@ export class AppVolumes extends SettingTweak {
         box.add_child(slider);
         item.add_child(box);
 
-        // Follow the main slider's maximum, so allowing over-amplification applies here too.
         this._slider.slider.bind_property('maximum-value',
             slider, 'maximum-value', GObject.BindingFlags.SYNC_CREATE);
 
-        // Name and icon come from the desktop app when we can find it, else from the stream.
         const updateInfo = () => {
             const app = findAppCached(stream);
             const name = app?.get_name() || stream.name;
@@ -224,7 +206,6 @@ export class AppVolumes extends SettingTweak {
                 Gio.ThemedIcon.new_with_default_fallbacks(stream.icon_name || FALLBACK_ICON);
         };
 
-        // Volume is shown relative to the "100%" level, not the raw PulseAudio maximum.
         const norm = () => control.get_vol_max_norm();
         const updateVolume = () => {
             slider.block_signal_handler(changedId);
@@ -233,7 +214,6 @@ export class AppVolumes extends SettingTweak {
             icon.opacity = stream.is_muted ? 128 : 255;
         };
 
-        // Dragging to zero mutes, dragging up from zero unmutes.
         const changedId = slider.connect('notify::value', () => {
             const volume = slider.value * norm();
             const wasMuted = stream.is_muted;
@@ -251,7 +231,6 @@ export class AppVolumes extends SettingTweak {
                 stream.push_volume();
         });
 
-        // Unmuting a stream that sits at zero would stay silent; give it a default volume.
         muteButton.connect('clicked', () => {
             const {is_muted: muted} = stream;
             if (muted && stream.volume === 0) {
@@ -273,8 +252,6 @@ export class AppVolumes extends SettingTweak {
         return item;
     }
 
-    // Show the separator only with at least one row; without rows the stock logic decides
-    // whether the menu is enabled.
     _syncRows() {
         this._separator.visible = this._rows.size > 0;
         if (this._rows.size > 0)
@@ -283,7 +260,6 @@ export class AppVolumes extends SettingTweak {
             this._slider._sync();
     }
 
-    // The menu is normally disabled with a single device; with app rows it is useful.
     _syncMenuEnabled() {
         if (this._rows?.size > 0 && !this._slider.menuEnabled)
             this._slider.menuEnabled = true;

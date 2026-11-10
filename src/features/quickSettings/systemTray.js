@@ -1,6 +1,3 @@
-// System tray in Quick Settings: apps that use the StatusNotifier (AppIndicator)
-// protocol are listed in the "Background Apps" menu, with their context menu
-// expandable in place. The protocol side lives in lib/statusNotifier.js.
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -15,15 +12,10 @@ import {whenQuickSettingsReady} from '../../lib/shell.js';
 import {SettingTweak} from '../../lib/tweak.js';
 import {TrayHost, stripMnemonic} from '../../lib/statusNotifier.js';
 
-// Translation domain of GNOME Shell, so our strings match the shell's own.
 const SHELL_DOMAIN = 'gnome-shell';
-// Tall menus scroll instead of growing the Quick Settings panel.
 const MENU_MAX_HEIGHT = 360;
-// GTypeNames must be unique per process. Since the shell caches modules across
-// reloads of the extension, add a random suffix to avoid clashes.
 const TYPE_SUFFIX = GLib.uuid_string_random().replaceAll('-', '');
 
-// Expander arrow, rotated by setExpanded().
 function arrow() {
     const icon = new St.Icon({
         icon_name: 'pan-end-symbolic',
@@ -34,7 +26,6 @@ function arrow() {
     return icon;
 }
 
-// Show or hide `actor` and turn the arrow to match (mirrored for right-to-left).
 function setExpanded(actor, arrowIcon, expanded) {
     actor.visible = expanded;
     arrowIcon.rotation_angle_z = expanded
@@ -42,8 +33,6 @@ function setExpanded(actor, arrowIcon, expanded) {
         : 0;
 }
 
-// Row header: app icon, name with subtitle, and a button that expands the app's menu.
-// Styled like the shell's own background app rows.
 const TrayAppItem = GObject.registerClass({
     GTypeName: `JhFixesTrayAppItem${TYPE_SUFFIX}`,
 }, class TrayAppItem extends PopupMenu.PopupBaseMenuItem {
@@ -92,7 +81,6 @@ const TrayAppItem = GObject.registerClass({
         this._menuButton.visible = hasMenu;
     }
 
-    // Items whose menu is their only action open it on click.
     activate(event) {
         if (this._row.clickOpensMenu) {
             this._row.toggleMenu();
@@ -102,7 +90,6 @@ const TrayAppItem = GObject.registerClass({
     }
 });
 
-// Header of a nested submenu inside a tray menu.
 const SubmenuItem = GObject.registerClass({
     GTypeName: `JhFixesTraySubmenuItem${TYPE_SUFFIX}`,
 }, class SubmenuItem extends PopupMenu.PopupBaseMenuItem {
@@ -121,8 +108,6 @@ const SubmenuItem = GObject.registerClass({
     }
 });
 
-// A menu section inside a scroll view (optionally with a maximum height), initially
-// hidden. The scroll view stands in as the section's actor.
 function scrollingSection(maxHeight) {
     const section = new PopupMenu.PopupMenuSection();
     const scroll = new St.ScrollView({
@@ -138,7 +123,6 @@ function scrollingSection(maxHeight) {
     return section;
 }
 
-// One tray icon: a header plus a collapsible section with its (D-Bus) menu.
 class TrayRow {
     constructor(item, onChanged) {
         this.item = item;
@@ -168,7 +152,6 @@ class TrayRow {
         return this.item.app;
     }
 
-    // Items with status "Passive" are meant to be hidden.
     get visible() {
         return this.item.ready && this.item.status !== 'Passive';
     }
@@ -177,12 +160,10 @@ class TrayRow {
         return this.app?.get_name() || this.item.title || this.item.id || this.item.busName;
     }
 
-    // ItemIsMenu: the item has no primary action, only a menu.
     get clickOpensMenu() {
         return !!this.item.menu && this.item.itemIsMenu;
     }
 
-    // Refresh header and, if expanded, the menu from the item.
     sync() {
         this.section.actor.visible = this.visible;
         if (!this.item.ready)
@@ -208,7 +189,6 @@ class TrayRow {
         this._onChanged();
     }
 
-    // Primary action. Fall back to launching the app if the item does not implement it.
     _activate() {
         Main.overview.hide();
         Main.panel.closeQuickSettings();
@@ -225,7 +205,6 @@ class TrayRow {
             this._expand();
     }
 
-    // Only one row is expanded at a time (see _addRow). The menu is told it is opened.
     _expand() {
         if (!this.item.menu)
             return;
@@ -245,8 +224,6 @@ class TrayRow {
         this.item.menu?.event(0, 'closed');
     }
 
-    // Fetch the menu layout from the app. A token discards results of outdated requests.
-    // `aboutToShow` lets the app refresh its menu first.
     async _load(aboutToShow = false) {
         const menu = this.item.menu;
         const token = (this._loadToken = Symbol('load'));
@@ -266,8 +243,6 @@ class TrayRow {
         }
     }
 
-    // Turns the dbusmenu tree into menu items: separators (never leading, trailing or
-    // doubled), submenus, items with icon, check marks and radio dots.
     _build(section, nodes, menu) {
         const isSeparator = node => node.props.type === 'separator';
         const shown = nodes.filter(node => node.props.visible !== false)
@@ -305,7 +280,6 @@ class TrayRow {
         }
     }
 
-    // Submenus are loaded when first opened, as they may only be populated on demand.
     _addSubmenu(section, id, label, children, menu, enabled) {
         const nested = scrollingSection(0);
         nested.box.style = 'padding-left: 12px;';
@@ -333,14 +307,10 @@ class TrayRow {
     }
 }
 
-// Hooks into the stock "Background Apps" toggle: it lists our rows next to the
-// stock ones, counts them in its title and hides stock entries that are also in
-// the tray, so no app appears twice.
 export class SystemTray extends SettingTweak {
     static KEY = 'quick-settings-systray';
     static DEFAULT = false;
 
-    // The background apps toggle is created lazily after login.
     _apply() {
         this._rows = new Map();
         this._cancelWait = whenQuickSettingsReady(qs => this._attach(qs));
@@ -379,17 +349,14 @@ export class SystemTray extends SettingTweak {
         const position = toggle.menu._getMenuItems().indexOf(toggle._appsSection) + 1;
         toggle.menu.addMenuItem(this._section, position);
 
-        // Overrides use `function` to keep `this` as the toggle.
         const self = this;
         this._injections.overrideMethod(toggle, '_sync', sync => function () {
             sync.call(this);
             self._decorate();
         });
-        // Show the toggle while tray items exist, not only when background apps do.
         this._injections.overrideMethod(toggle, '_syncVisibility', () => function () {
             this.visible = !Main.sessionMode.isLocked && (this.menu.isOpen || self._count() > 0);
         });
-        // Collapse all expanded rows when the menu closes.
         toggle.menu.connectObject('open-state-changed', (_menu, open) => {
             if (!open)
                 this._rows.forEach(row => row.collapse());
@@ -404,7 +371,6 @@ export class SystemTray extends SettingTweak {
         toggle._sync();
     }
 
-    // Expanding one row collapses the others.
     _addRow(item) {
         const row = new TrayRow(item, () => this._decorate());
         row._onExpand = expanded => this._rows.forEach(r => r !== expanded && r.collapse());
@@ -429,9 +395,6 @@ export class SystemTray extends SettingTweak {
         return backgroundApps + this._visibleRows().length;
     }
 
-    // Re-sync the stock toggle: hide stock entries duplicated in the tray, sort rows by
-    // name and update the title ("3 Background Apps"). Guarded against re-entrancy since
-    // _syncVisibility() triggers further updates.
     _decorate() {
         const toggle = this._toggle;
         if (!toggle || this._decorating)

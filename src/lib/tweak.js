@@ -1,11 +1,5 @@
 import {InjectionManager} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-// Base class for a tweak driven by one boolean setting.
-//
-// Subclasses set KEY (and DEFAULT, the stock value of the setting) and implement
-// _apply()/_revert(). The tweak counts as applied when the setting differs from
-// the default, so nothing changes until the user opts in. Monkey-patches go through
-// the InjectionManager so _revert() restores the originals.
 export class SettingTweak {
     static KEY = '';
     static DEFAULT = true;

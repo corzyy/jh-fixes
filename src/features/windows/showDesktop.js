@@ -1,5 +1,3 @@
-// Keyboard shortcut that minimizes all windows of the current workspace, and
-// restores exactly those windows when pressed again.
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 
@@ -11,10 +9,8 @@ const SHORTCUT_KEY = 'show-desktop-shortcut';
 
 export class ShowDesktop extends SettingTweak {
     static KEY = 'show-desktop';
-    // Off by default, unlike most tweaks.
     static DEFAULT = false;
 
-    // `_minimized` maps each workspace to the windows we minimized there.
     _apply() {
         this._minimized = new Map();
         Main.wm.addKeybinding(SHORTCUT_KEY, this._settings,
@@ -30,14 +26,11 @@ export class ShowDesktop extends SettingTweak {
         this._minimized = null;
     }
 
-    // First press: minimize everything still shown. Second press (nothing left to
-    // minimize): bring back the remembered windows in reverse order.
     _toggle() {
         if (Main.overview.visible)
             Main.overview.hide();
 
         const workspace = global.workspace_manager.get_active_workspace();
-        // Forget windows the user has restored in the meantime.
         const remembered = (this._minimized.get(workspace) ?? []).filter(w => {
             if (w.minimized)
                 return true;
@@ -64,7 +57,6 @@ export class ShowDesktop extends SettingTweak {
         }
     }
 
-    // A remembered window was closed; drop it everywhere.
     _forget(win) {
         win.disconnectObject(this);
         for (const [workspace, windows] of this._minimized) {

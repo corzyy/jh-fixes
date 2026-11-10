@@ -1,9 +1,3 @@
-// StatusNotifier ("AppIndicator" / system tray) host implemented over D-Bus.
-//
-// TrayHost acts as the tray: it provides org.kde.StatusNotifierWatcher itself when
-// nobody else does (and uses an existing watcher otherwise) and creates a TrayItem
-// for every registered app. A TrayItem mirrors the properties of one
-// org.kde.StatusNotifierItem and its dbusmenu (DBusMenu).
 import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -13,19 +7,15 @@ import * as Signals from 'resource:///org/gnome/shell/misc/signals.js';
 
 Gio._promisify(Gio.DBusConnection.prototype, 'call');
 
-// Well-known names and interfaces of the protocol.
 const WATCHER_NAME = 'org.kde.StatusNotifierWatcher';
 const WATCHER_PATH = '/StatusNotifierWatcher';
 const ITEM_IFACE = 'org.kde.StatusNotifierItem';
 const MENU_IFACE = 'com.canonical.dbusmenu';
 const DEFAULT_ITEM_PATH = '/StatusNotifierItem';
 
-// Apps often emit bursts of change signals; refresh at most once per this delay.
 const REFRESH_DELAY_MS = 100;
-// Preferred size of icons sent as raw pixmaps.
 const PIXMAP_SIZE = 32;
 
-// Interface of the watcher that we export on the session bus.
 const WATCHER_XML = `<node>
   <interface name="${WATCHER_NAME}">
     <method name="RegisterStatusNotifierItem"><arg name="service" type="s" direction="in"/></method>
@@ -40,37 +30,30 @@ const WATCHER_XML = `<node>
   </interface>
 </node>`;
 
-// True if an async call failed only because it was cancelled.
 const isCancelled = e => e instanceof GLib.Error &&
     e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED);
 
-// Promise-returning D-Bus method call.
 function call(conn, name, path, iface, method, params, replyType, cancellable = null) {
     return conn.call(name, path, iface, method, params ?? null,
         replyType ? new GLib.VariantType(replyType) : null,
         Gio.DBusCallFlags.NONE, -1, cancellable);
 }
 
-// Call on the bus daemon itself; resolves with the first reply value.
 async function busCall(conn, method, params, replyType, cancellable) {
     const reply = await call(conn, 'org.freedesktop.DBus', '/org/freedesktop/DBus',
         'org.freedesktop.DBus', method, params, replyType, cancellable);
     return reply.deepUnpack()[0];
 }
 
-// Resolves a well-known name to the unique name (":1.42") of its owner.
 const uniqueName = (conn, name, cancellable) => name.startsWith(':')
     ? Promise.resolve(name)
     : busCall(conn, 'GetNameOwner', new GLib.Variant('(s)', [name]), '(s)', cancellable);
 
-// Item ids look like "<bus name>/<object path>"; the path is optional.
 function splitId(id) {
     const slash = id.indexOf('/');
     return slash < 0 ? [id, DEFAULT_ITEM_PATH] : [id.slice(0, slash), id.slice(slash)];
 }
 
-// Minimal implementation of org.kde.StatusNotifierWatcher: apps register their
-// items here, and we report when they come and go.
 class Watcher {
     constructor(conn, onAdded, onRemoved) {
         this._conn = conn;
@@ -85,7 +68,6 @@ class Watcher {
         return [...this._items.keys()];
     }
 
-    // Apps only show a tray icon when a host exists, so always claim there is one.
     get IsStatusNotifierHostRegistered() {
         return true;
     }
@@ -98,9 +80,6 @@ class Watcher {
         invocation.return_value(null);
     }
 
-    // Apps register either a bus name or (some) just an object path, in which case the
-    // bus name is the sender. Items are tracked by "<unique name><path>" and removed
-    // when their bus name disappears.
     async RegisterStatusNotifierItemAsync([service], invocation) {
         const byPath = service.startsWith('/');
         let name = byPath ? invocation.get_sender() : service;
@@ -151,7 +130,6 @@ class Watcher {
     }
 }
 
-// Collects tray items and emits "item-added" / "item-removed" with TrayItem objects.
 export class TrayHost extends Signals.EventEmitter {
     constructor() {
         super();
@@ -164,8 +142,6 @@ export class TrayHost extends Signals.EventEmitter {
         this._nameWatch = 0;
     }
 
-    // If a watcher is already running (e.g. from another extension), follow it; if the
-    // name is or becomes free, take over as the watcher.
     start() {
         this._nameWatch = Gio.bus_watch_name_on_connection(this._conn, WATCHER_NAME,
             Gio.BusNameWatcherFlags.NONE,
@@ -190,8 +166,6 @@ export class TrayHost extends Signals.EventEmitter {
             this._removeItem(id);
     }
 
-    // Export our watcher and own its name. If the name is taken after all, fall back to
-    // following the other owner.
     _becomeWatcher() {
         if (this._watcher)
             return;
@@ -219,8 +193,6 @@ export class TrayHost extends Signals.EventEmitter {
         this._watcher = null;
     }
 
-    // Follow someone else's watcher: subscribe to its signals and read the items
-    // registered so far.
     async _useExternal(owner) {
         this._dropExternal();
         this._externalSignal = this._conn.signal_subscribe(owner, WATCHER_NAME, null,
@@ -271,8 +243,6 @@ export class TrayHost extends Signals.EventEmitter {
     }
 }
 
-// One tray icon. Properties are cached from the app and exposed as getters; "changed"
-// is emitted when they are refreshed. `app` is the matching desktop app, if found.
 class TrayItem extends Signals.EventEmitter {
     constructor(conn, id) {
         super();
@@ -288,8 +258,6 @@ class TrayItem extends Signals.EventEmitter {
         this._refreshId = 0;
     }
 
-    // Resolve the bus name, watch for the app going away and for property changes, then
-    // load the properties and the app. Only then is the item `ready`.
     async start() {
         try {
             this.busName = await uniqueName(this._conn, this.busName, this._cancellable);
@@ -326,7 +294,6 @@ class TrayItem extends Signals.EventEmitter {
         this.menu = null;
     }
 
-    // Unpacked property value, or undefined if absent.
     _prop(name) {
         try {
             return this._props[name]?.deepUnpack();
@@ -355,7 +322,6 @@ class TrayItem extends Signals.EventEmitter {
         return !!this._prop('ItemIsMenu');
     }
 
-    // ToolTip is (icon name, icon pixmaps, title, body); body is HTML-like markup.
     get tooltip() {
         const tip = this._props.ToolTip;
         if (!tip?.get_type_string().startsWith('('))
@@ -364,8 +330,6 @@ class TrayItem extends Signals.EventEmitter {
         return [title, body].map(t => stripMarkup(t ?? '')).find(t => t) ?? '';
     }
 
-    // Picks an icon in order of preference: absolute path, file in the item's own icon
-    // theme path, theme icon, raw pixmap. NeedsAttention uses the attention variants.
     get gicon() {
         const attention = this.status === 'NeedsAttention';
         const name = (attention && this._prop('AttentionIconName')) || this._prop('IconName');
@@ -385,14 +349,12 @@ class TrayItem extends Signals.EventEmitter {
             (name ? Gio.ThemedIcon.new(name) : Gio.ThemedIcon.new('application-x-executable-symbolic'));
     }
 
-    // Primary action (Activate) or e.g. SecondaryAction, at the pointer position.
     activate(method = 'Activate') {
         const [x, y] = global.get_pointer();
         return call(this._conn, this.busName, this.path, ITEM_IFACE, method,
             new GLib.Variant('(ii)', [x, y]), null, this._cancellable);
     }
 
-    // Process id behind the bus name, used to find the app.
     async pid(cancellable) {
         return busCall(this._conn, 'GetConnectionUnixProcessID',
             new GLib.Variant('(s)', [this.busName]), '(u)', cancellable);
@@ -408,7 +370,6 @@ class TrayItem extends Signals.EventEmitter {
         });
     }
 
-    // Reload all properties and (re)create the dbusmenu if its path changed.
     async _refresh() {
         try {
             const reply = await call(this._conn, this.busName, this.path,
@@ -431,8 +392,6 @@ class TrayItem extends Signals.EventEmitter {
     }
 }
 
-// Client for com.canonical.dbusmenu, the menu protocol of tray items. Emits "changed"
-// when the app says its menu was updated.
 class DBusMenu extends Signals.EventEmitter {
     constructor(conn, busName, path) {
         super();
@@ -471,15 +430,12 @@ class DBusMenu extends Signals.EventEmitter {
             params, replyType, this._cancellable);
     }
 
-    // Menu tree below `parentId` (0 is the root), recursively.
     async layout(parentId = 0) {
         const reply = await this._call('GetLayout',
             new GLib.Variant('(iias)', [parentId, -1, []]), '(u(ia{sv}av))');
         return parseNode(reply.get_child_value(1));
     }
 
-    // Tells the app we are about to show the menu so it can update it. Resolves true if
-    // the layout needs to be fetched again.
     async aboutToShow(id = 0) {
         try {
             const reply = await this._call('AboutToShow', new GLib.Variant('(i)', [id]), '(b)');
@@ -489,7 +445,6 @@ class DBusMenu extends Signals.EventEmitter {
         }
     }
 
-    // Sends an event such as "clicked", "opened" or "closed" for an entry.
     event(id, type) {
         const data = type === 'clicked' ? new GLib.Variant('i', 0) : new GLib.Variant('s', '');
         this._call('Event',
@@ -501,7 +456,6 @@ class DBusMenu extends Signals.EventEmitter {
     }
 }
 
-// Converts a (id, properties, children) layout variant into plain objects.
 function parseNode(variant) {
     const id = variant.get_child_value(0).get_int32();
     const rawProps = variant.get_child_value(1).deepUnpack();
@@ -515,15 +469,12 @@ function parseNode(variant) {
     return {id, props, children};
 }
 
-// Removes tags and decodes basic entities from tooltip text.
 const stripMarkup = text => text.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
 
-// dbusmenu labels mark accelerators with "_"; "__" is a literal underscore.
 export const stripMnemonic = label => label.replace(/__/g, '\0').replace(/_/g, '')
     .replace(/\0/g, '_');
 
-// Searching an icon theme directory is slow; cache results (bounded).
 const iconFileCache = new Map();
 
 function findIconFile(root, name) {
@@ -536,8 +487,6 @@ function findIconFile(root, name) {
     return iconFileCache.get(key);
 }
 
-// Looks for <name>.png/.svg/.xpm up to 4 levels below `root`. Prefers SVG, then the
-// largest file.
 function searchIconFile(root, name) {
     const found = [];
     const walk = (dir, depth) => {
@@ -566,9 +515,6 @@ function searchIconFile(root, name) {
     return found[0]?.file ?? null;
 }
 
-// Builds an icon from the IconPixmap property, a list of (width, height, ARGB bytes).
-// Picks the smallest pixmap that is at least PIXMAP_SIZE wide (or the largest one),
-// converts network-order ARGB to RGBA and encodes it as PNG.
 function pixmapIcon(pixmaps) {
     const n = pixmaps?.n_children() ?? 0;
     const entries = [];
@@ -604,8 +550,6 @@ function pixmapIcon(pixmaps) {
     }
 }
 
-// Apps launched by GNOME run in a systemd unit named app-<launcher>-<id>.scope/
-// .service, which reveals the desktop file id even for sandboxed apps.
 function appFromCgroup(pid) {
     let text;
     try {
@@ -627,9 +571,6 @@ function appFromCgroup(pid) {
     return Shell.AppSystem.get_default().lookup_app(`${appId}.desktop`);
 }
 
-// Finds the desktop app for an item: by process (cgroup, window tracker), then
-// Flatpak id in the icon theme path, then by matching its id/title to known
-// WM classes. Returns null if nothing fits.
 async function findApp(item, cancellable) {
     const appSystem = Shell.AppSystem.get_default();
     try {

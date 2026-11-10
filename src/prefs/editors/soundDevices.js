@@ -1,18 +1,15 @@
-// Editor for sound devices: rename them, hide them, or forget them.
 import Adw from 'gi://Adw';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 
 import {bindNotInList, onChanged} from '../ui/build.js';
 
-// Settings per device kind ("output" or "input"); see features/quickSettings/soundDevices.js.
 const deviceKeys = kind => ({
     known: `known-${kind}-devices`,
     names: `${kind}-device-names`,
     hidden: `hidden-${kind}-devices`,
 });
 
-// Lists every device the shell has seen, sorted by name.
 export function deviceGroup(settings, kind) {
     const keys = deviceKeys(kind);
     const group = new Adw.PreferencesGroup({
@@ -41,8 +38,6 @@ export function deviceGroup(settings, kind) {
     return group;
 }
 
-// Entry for the custom name (applied with Enter or the check button), a switch for
-// visibility and a button that forgets the device. Maps are stored as a{ss}.
 function deviceRow(settings, keys, key, label) {
     const getMap = k => settings.get_value(k).deepUnpack();
     const setMap = (k, map) => settings.set_value(k, new GLib.Variant('a{ss}', map));
@@ -52,7 +47,6 @@ function deviceRow(settings, keys, key, label) {
         text: getMap(keys.names)[key] ?? '',
         show_apply_button: true,
     });
-    // Do not overwrite what is being typed.
     onChanged(settings, keys.names, () => {
         if (!row.get_focus_child())
             row.text = getMap(keys.names)[key] ?? '';

@@ -1,6 +1,3 @@
-// Dynamic top bar: transparent while the desktop is visible, solid as soon as a
-// window touches it. Only the PANEL_SOLID_CLASS style class is toggled here; the
-// actual colors come from the generated theme (see appearance/theme).
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import St from 'gi://St';
@@ -9,7 +6,6 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {PANEL_SOLID_CLASS} from '../appearance/theme/build.js';
 
-// Window types that count as touching the panel (docks, desktop windows etc. do not).
 const TOUCHING_TYPES = new Set([
     Meta.WindowType.NORMAL,
     Meta.WindowType.DIALOG,
@@ -19,7 +15,6 @@ const TOUCHING_TYPES = new Set([
     Meta.WindowType.SPLASHSCREEN,
 ]);
 
-// Gap in logical pixels still counted as touching.
 const TOUCH_MARGIN = 4;
 
 export class DynamicPanel {
@@ -48,7 +43,6 @@ export class DynamicPanel {
             this._stop();
     }
 
-    // Re-evaluate whenever something that could change the answer happens.
     _start() {
         this._active = true;
         const queue = () => this._queueUpdate();
@@ -82,7 +76,6 @@ export class DynamicPanel {
         this._solid = false;
     }
 
-    // Window actors announce movement and visibility through property notifications.
     _watch(actor) {
         if (!(actor instanceof Meta.WindowActor))
             return;
@@ -91,7 +84,6 @@ export class DynamicPanel {
         queue();
     }
 
-    // Coalesce bursts of events into a single update when the main loop is idle.
     _queueUpdate() {
         this._idleId ||= GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._idleId = 0;
@@ -111,8 +103,6 @@ export class DynamicPanel {
             Main.panel.remove_style_class_name(PANEL_SOLID_CLASS);
     }
 
-    // True if a normal window on the panel's monitor reaches the panel. Never solid in
-    // the Overview, on the lock screen or in the greeter.
     _touched() {
         if (Main.overview.visibleTarget || Main.sessionMode.isLocked ||
             Main.sessionMode.isGreeter)

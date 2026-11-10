@@ -1,5 +1,3 @@
-// Adds a button for this extension's settings next to the buttons in the Quick
-// Settings top row.
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -17,7 +15,6 @@ export class PrefsButton extends SettingTweak {
         this._extension = extension;
     }
 
-    // The system row is created lazily after login, so wait for it.
     _apply() {
         this._cancelWait = whenReady(
             () => Main.panel.statusArea.quickSettings?._system?._systemItem,
@@ -46,7 +43,6 @@ export class PrefsButton extends SettingTweak {
             this._extension.openPreferences();
         });
 
-        // Place it before the spacer so it sits with the other buttons, not at the far end.
         const box = systemItem.child;
         const spacer = systemItem._desktopSpacer;
         if (spacer?.get_parent() === box)
@@ -54,7 +50,6 @@ export class PrefsButton extends SettingTweak {
         else
             box.add_child(this._button);
 
-        // Hide it where settings are not allowed (lock screen, greeter).
         const sync = () => (this._button.visible = Main.sessionMode.allowSettings);
         Main.sessionMode.connectObject('updated', sync, this);
         sync();

@@ -1,10 +1,3 @@
-// Rounded corners for windows that are not libadwaita apps (those already have them).
-//
-// A fragment shader (RoundedCornersEffect) masks the window's corners. That also
-// cuts off the compositor's drop shadow, so each window gets a replacement: a
-// separate actor below it, kept in step with the window, that draws a rounded box
-// shadow (ClipShadowEffect hides the part that would show through the window).
-// Maximized and fullscreen windows are left square.
 import Clutter from 'gi://Clutter';
 import Cogl from 'gi://Cogl';
 import Gio from 'gi://Gio';
@@ -14,29 +7,21 @@ import Meta from 'gi://Meta';
 import St from 'gi://St';
 
 const KEY = 'window-corners';
-// Corner radius in logical pixels (libadwaita uses 15).
 const RADIUS = 15;
 const EFFECT_NAME = 'jh-fixes-rounded-corners';
 
-// Extra room around the window for the shadow, and the shadow styles (CSS box-shadow).
 const SHADOW_PADDING = 80;
 const SHADOW_FOCUSED = '0 4px 28px 4px rgba(0, 0, 0, 0.6)';
 const SHADOW_UNFOCUSED = '0 2px 12px -1px rgba(0, 0, 0, 0.65)';
 
-// Only regular windows are rounded; menus, tooltips etc. are not.
 const WINDOW_TYPES = new Set([
     Meta.WindowType.NORMAL,
     Meta.WindowType.DIALOG,
     Meta.WindowType.MODAL_DIALOG,
 ]);
 
-// GTypeNames must be unique per process, and the shell keeps them across reloads of
-// the extension, so add a random suffix.
 const TYPE_SUFFIX = GLib.uuid_string_random().replaceAll('-', '');
 
-// Shader: `bounds` is the window frame inside the buffer (x1, y1, x2, y2), `size` the
-// buffer size. corner_alpha() returns 0 outside the frame and anti-aliased coverage
-// of the rounded rectangle inside it.
 const CORNERS_DECLARATIONS = `
 uniform vec4 bounds;
 uniform float radius;
@@ -49,12 +34,9 @@ float corner_alpha(vec2 p) {
 }`;
 const CORNERS_CODE = 'cogl_color_out *= corner_alpha(cogl_tex_coord_in[0].xy * size);';
 
-// The effect classes are only created once the feature is first started.
 let RoundedCornersEffect = null;
 let ClipShadowEffect = null;
 
-// Registers the two effects. In clones (Overview, Alt+Tab) windows are scaled down;
-// use mipmaps there so the edges do not alias.
 function registerTypes() {
     RoundedCornersEffect ??= GObject.registerClass({
         GTypeName: `JhFixesRoundedCornersEffect${TYPE_SUFFIX}`,
@@ -73,7 +55,6 @@ function registerTypes() {
             super.vfunc_paint_target(node, paintContext);
         }
 
-        // Sets the shader uniforms; does nothing if the geometry is unchanged.
         setGeometry(bounds, radius, width, height) {
             const geometry = [...bounds, radius, width, height];
             if (this._geometry?.every((v, i) => v === geometry[i]))
@@ -86,8 +67,6 @@ function registerTypes() {
         }
     });
 
-    // Applied to the shadow actor: removes the light parts of the pixels so the white
-    // background used to draw the shadow shape does not show, leaving only the shadow.
     ClipShadowEffect ??= GObject.registerClass({
         GTypeName: `JhFixesClipShadowEffect${TYPE_SUFFIX}`,
     }, class ClipShadowEffect extends Clutter.ShaderEffect {
@@ -99,7 +78,6 @@ function registerTypes() {
     });
 }
 
-// Resolves true if the process has libadwaita mapped, found through /proc/<pid>/maps.
 function usesLibadwaita(pid) {
     if (!(pid > 0))
         return Promise.resolve(false);
@@ -116,9 +94,6 @@ function usesLibadwaita(pid) {
     });
 }
 
-// `_windows` maps each window actor to its state: whether it is a libadwaita app, the
-// shader effect, the shadow actor with its constraints and bindings, and the last
-// style applied.
 export class RoundedCorners {
     constructor(settings) {
         this._settings = settings;
@@ -166,8 +141,6 @@ export class RoundedCorners {
         this._adwaita.clear();
     }
 
-    // Starts watching a window. Whether it uses libadwaita is determined asynchronously
-    // and cached per process; until it is known the window is left alone.
     _track(actor) {
         const win = actor?.meta_window;
         if (!win || this._windows.has(actor) || !WINDOW_TYPES.has(win.window_type))
@@ -201,7 +174,6 @@ export class RoundedCorners {
         });
     }
 
-    // Drops the cached libadwaita result once the last window of a process is gone.
     _forgetPid(win) {
         const pid = win.get_pid();
         for (const actor of this._windows?.keys() ?? []) {
@@ -222,16 +194,11 @@ export class RoundedCorners {
         this._windows.delete(actor);
     }
 
-    // X11 windows keep their content in a child of the actor; the effect goes on that.
-    // Wayland windows use the actor itself.
     _target(actor) {
         return actor.meta_window.get_client_type() === Meta.WindowClientType.X11
             ? actor.get_first_child() : actor;
     }
 
-    // Rounded only if the app does not draw its own corners and the window is neither
-    // maximized nor fullscreen. Positions the mask in the buffer, sizes the shadow
-    // actor around the frame and picks the shadow for focused or unfocused windows.
     _update(actor) {
         const entry = this._windows?.get(actor);
         const win = actor.meta_window;
@@ -274,8 +241,6 @@ export class RoundedCorners {
         }
     }
 
-    // Adds the effect and a shadow actor, placed below the window and bound to its
-    // position, size, scale, opacity and visibility so that animations are followed.
     _addEffect(actor, target, entry) {
         entry.effect = new RoundedCornersEffect();
         target.add_effect_with_name(EFFECT_NAME, entry.effect);
@@ -307,7 +272,6 @@ export class RoundedCorners {
         Object.assign(entry, {effect: null, shadow: null, constraints: [], bindings: [], style: null});
     }
 
-    // Keep every shadow directly below its window when the stacking order changes.
     _restack() {
         for (const [actor, {shadow}] of this._windows) {
             if (shadow && shadow.get_next_sibling() !== actor)

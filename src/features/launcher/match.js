@@ -1,32 +1,23 @@
-// Text matching and scoring for the launcher, plus a small calculator.
-//
-// Lowercases and strips diacritics, so "cafe" matches "Café".
 export function fold(text) {
     return (text ?? '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 }
 
-// Folds per character so indexes still line up with the original text.
 const ASCII = /^[\x00-\x7f]*$/;
 const foldAligned = text => ASCII.test(text)
     ? text.toLowerCase()
     : text.split('').map(c => fold(c)[0] ?? c).join('');
 
-// Characters that separate words; lower->upper transitions (camelCase) do too.
 const SEPARATOR = /[\s\-_./()—–·:]/;
 const LOWER = /\p{Ll}/u;
 const UPPER = /\p{Lu}/u;
 
-// Everything matching needs to know about a text, worked out once: the same app
-// names and file names are scored again on every keystroke.
 const PREPARED_MAX = 5000;
 const prepared = new Map();
 
-// Cached per text. `bounds[i]` is 1 where a word starts.
 function prepare(text) {
     let p = prepared.get(text);
     if (p)
         return p;
-    // bounds[i]: a word starts at i
     const bounds = new Uint8Array(text.length);
     for (let i = 0; i < text.length; i++) {
         bounds[i] = i === 0 || SEPARATOR.test(text[i - 1]) ||
@@ -39,10 +30,6 @@ function prepare(text) {
     return p;
 }
 
-// Each query letter must either follow the previous match or start a word,
-// so "vsc" finds "Visual Studio Code" but "fire" doesn't find "jh-fixes — LibreWolf".
-// Scores a fuzzy match of `query` as a subsequence of `text`. Consecutive matches get
-// a growing bonus; gaps cost points. Returns null if the letters do not all occur.
 function subsequence(query, text, bounds) {
     let score = 0;
     let at = 0;
@@ -73,9 +60,6 @@ function subsequence(query, text, bounds) {
     return score;
 }
 
-// Score of one text for a query, or null for no match. Tiers: exact (1000), prefix
-// (~900), substring (~800 at a word start, ~600 elsewhere), fuzzy (300+). Fuzzy
-// matching needs at least two letters.
 export function scoreText(query, text) {
     if (!query || !text)
         return null;
@@ -93,7 +77,6 @@ export function scoreText(query, text) {
     return sub === null ? null : 300 + sub;
 }
 
-// The query is split into words once and reused for all candidates.
 let splitQuery = null;
 let splitWords = null;
 
@@ -105,9 +88,6 @@ function wordsOf(query) {
     return splitWords;
 }
 
-// fields: [[text, weight], ...]. Every word of the query must match some field.
-// Best weighted score over all fields. A multi-word query may also match when each
-// word matches some field (e.g. "code visual"), at a small penalty.
 export function scoreFields(query, fields) {
     const whole = best(query, fields);
     const words = wordsOf(query);
@@ -124,7 +104,6 @@ export function scoreFields(query, fields) {
     return whole === null ? split : Math.max(whole, split);
 }
 
-// Highest weighted score among the fields.
 function best(query, fields) {
     let top = null;
     for (const [text, weight] of fields) {
@@ -135,8 +114,6 @@ function best(query, fields) {
     return top;
 }
 
-// Small calculator: + - * / % ^, parentheses, constants and a few functions.
-// Functions and constants available to the calculator.
 const FUNCTIONS = {
     sqrt: Math.sqrt, cbrt: Math.cbrt, abs: Math.abs, round: Math.round,
     floor: Math.floor, ceil: Math.ceil, ln: Math.log, log: Math.log10, log2: Math.log2,
@@ -145,8 +122,6 @@ const FUNCTIONS = {
 };
 const CONSTANTS = {pi: Math.PI, e: Math.E, tau: 2 * Math.PI};
 
-// Splits an expression into numbers, names and operators. Accepts a decimal comma
-// and the symbols × ÷ **. Returns null on anything else.
 function tokenize(src) {
     const tokens = [];
     const re = /\s*(?:(\d+(?:[.,]\d+)?(?:e[+-]?\d+)?|[.,]\d+)|([a-z]+\d?)|(\*\*|[-+*/%^()×÷!]))/gy;
@@ -168,12 +143,6 @@ function tokenize(src) {
     return tokens;
 }
 
-// Evaluates a calculator expression and returns the formatted result, or null if the
-// text is not a calculation. Recursive descent, lowest to highest precedence:
-// expr (+ -), term (* / %, implicit multiplication), unary (sign), power (^),
-// postfix (!), primary (number, constant, function, parentheses).
-// A bare number does not count: there must be an operator or function, so typing
-// "42" does not show a result.
 export function calculate(src) {
     const text = src.toLowerCase().trim().replace(/^=/, '');
     if (!/[\d)]/.test(text) && !/\b(pi|tau|e)\b/.test(text))
@@ -282,8 +251,6 @@ export function calculate(src) {
     }
 }
 
-// Integers as they are, other values rounded to 12 significant digits to hide
-// floating point noise (0.1 + 0.2 -> 0.3).
 function formatNumber(value) {
     if (Number.isInteger(value) && Math.abs(value) < 1e21)
         return `${value}`;
