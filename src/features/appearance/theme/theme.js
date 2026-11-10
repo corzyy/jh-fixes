@@ -3,48 +3,30 @@ import GLib from 'gi://GLib';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {FIXED_PARTS, OPTIONS, PALETTES, STYLE_PARTS, buildCss} from './build.js';
+import {buildCss} from './build.js';
 
-const KEY = 'shell-theme';
-const optionKey = name => `shell-theme-${name}`;
-const KEYS = [
-    KEY,
-    'shell-theme-palette',
-    'shell-theme-disabled-styles',
-    ...Object.keys(OPTIONS).map(optionKey),
-];
+const KEYS = ['shell-theme-panel', 'shell-theme-panel-solid', 'shell-theme-panel-shadow'];
 
 const STOCK_CSS = '/org/gnome/shell/theme/gnome-shell-dark.css';
+const EXTRA_CSS = GLib.uri_resolve_relative(import.meta.url, 'theme.css', GLib.UriFlags.NONE);
 const OUTPUT = GLib.build_filenamev([GLib.get_user_cache_dir(), 'jh-fixes', 'gnome-shell.css']);
+const STAMP = `${OUTPUT}.stamp`;
 
 const REBUILD_DELAY = 100;
 
-const decoder = new TextDecoder();
-
-const parts = new Map();
-
-function readStock() {
-    return decoder.decode(
-        Gio.resources_lookup_data(STOCK_CSS, Gio.ResourceLookupFlags.NONE).toArray());
-}
-
-function fileHolds(path, css) {
+function readText(path) {
     try {
-        const [, bytes] = GLib.file_get_contents(path);
-        return bytes.length > 0 && decoder.decode(bytes) === css;
+        return new TextDecoder().decode(GLib.file_get_contents(path)[1]);
     } catch {
-        return false;
+        return null;
     }
 }
 
-function readPart(id) {
-    if (!parts.has(id)) {
-        const file = Gio.File.new_for_uri(
-            GLib.uri_resolve_relative(import.meta.url, `css/${id}.css`, GLib.UriFlags.NONE));
-        const [, bytes] = file.load_contents(null);
-        parts.set(id, decoder.decode(bytes));
-    }
-    return parts.get(id);
+function build(options) {
+    const stock = new TextDecoder().decode(
+        Gio.resources_lookup_data(STOCK_CSS, Gio.ResourceLookupFlags.NONE).toArray());
+    const [, extra] = Gio.File.new_for_uri(EXTRA_CSS).load_contents(null);
+    return buildCss(stock, new TextDecoder().decode(extra), options);
 }
 
 const currentStylesheet = () => Main.getThemeStylesheet()?.get_path() ?? null;
@@ -60,15 +42,11 @@ export class ShellTheme {
     enable() {
         for (const key of KEYS)
             this._settings.connectObject(`changed::${key}`, () => this._queueSync(), this);
-        this._settings.connectObject(
-            'changed::shell-theme-palette', () => this._applyAccent(),
-            `changed::${KEY}`, () => this._applyAccent(), this);
         Main.extensionManager.connectObject('extension-state-changed', () => {
-            if (this._settings.get_boolean(KEY) && currentStylesheet() !== OUTPUT)
+            if (currentStylesheet() !== OUTPUT)
                 this._queueSync();
         }, this);
         this._sync();
-        this._applyAccent();
     }
 
     disable() {
@@ -78,15 +56,6 @@ export class ShellTheme {
         this._settings.disconnectObject(this);
         Main.extensionManager.disconnectObject(this);
         this._remove();
-    }
-
-    _applyAccent() {
-        const accent = PALETTES[this._settings.get_string('shell-theme-palette')]?.accent;
-        if (!accent || !this._settings.get_boolean(KEY))
-            return;
-        const iface = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
-        if (iface.get_string('accent-color') !== accent)
-            iface.set_string('accent-color', accent);
     }
 
     _queueSync() {
@@ -100,10 +69,6 @@ export class ShellTheme {
     }
 
     _sync() {
-        if (!this._settings.get_boolean(KEY)) {
-            this._remove();
-            return;
-        }
         try {
             this._apply();
         } catch (e) {
@@ -112,50 +77,31 @@ export class ShellTheme {
     }
 
     _apply() {
-        const disabled = this._settings.get_strv('shell-theme-disabled-styles');
-        const inputs = {
-            palette: this._settings.get_string('shell-theme-palette'),
-            parts: STYLE_PARTS.filter(id => FIXED_PARTS.includes(id) || !disabled.includes(id)),
-            options: this._readOptions(),
+        const options = {
+            panel: this._settings.get_string(KEYS[0]),
+            solid: this._settings.get_string(KEYS[1]),
+            shadow: this._settings.get_int(KEYS[2]),
         };
-
-        const key = JSON.stringify(inputs);
+        // Everything the stylesheet is built from: the options, GNOME's own
+        // stylesheet and this build of the extension. While it matches the
+        // stamp, the cached file is loaded as it is.
+        const key = [JSON.stringify(options),
+            Gio.resources_get_info(STOCK_CSS, Gio.ResourceLookupFlags.NONE), EXTRA_CSS].join('\n');
         const current = currentStylesheet();
         if (current === OUTPUT && key === this._loadedKey)
             return;
         if (current !== OUTPUT)
             this._previous = current;
 
-        const css = buildCss({
-            stockCss: readStock(),
-            palette: inputs.palette,
-            parts: new Map(inputs.parts.map(id => [id, readPart(id)])),
-            options: inputs.options,
-        });
-
-        if (fileHolds(OUTPUT, css)) {
-            if (current === OUTPUT && this._loadedKey !== null) {
-                this._loadedKey = key;
-                return;
-            }
-        } else {
+        if (readText(STAMP) !== key || !GLib.file_test(OUTPUT, GLib.FileTest.EXISTS)) {
             GLib.mkdir_with_parents(GLib.path_get_dirname(OUTPUT), 0o755);
-            GLib.file_set_contents(OUTPUT, css);
+            GLib.file_set_contents(OUTPUT, build(options));
+            GLib.file_set_contents(STAMP, key);
         }
 
         Main.setThemeStylesheet(OUTPUT);
         Main.loadTheme();
         this._loadedKey = key;
-    }
-
-    _readOptions() {
-        const options = {};
-        for (const [name, fallback] of Object.entries(OPTIONS)) {
-            options[name] = typeof fallback === 'string'
-                ? this._settings.get_string(optionKey(name))
-                : this._settings.get_int(optionKey(name));
-        }
-        return options;
     }
 
     _remove() {

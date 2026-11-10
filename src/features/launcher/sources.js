@@ -8,16 +8,9 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as SystemActions from 'resource:///org/gnome/shell/misc/systemActions.js';
 import * as Util from 'resource:///org/gnome/shell/misc/util.js';
 
-import {calculate, fold, scoreFields} from './match.js';
+import {calculate, scoreFields} from './match.js';
 
-export const WEB_ENGINES = {
-    duckduckgo: ['DuckDuckGo', 'https://duckduckgo.com/?q=%s'],
-    google: ['Google', 'https://www.google.com/search?q=%s'],
-    bing: ['Bing', 'https://www.bing.com/search?q=%s'],
-    startpage: ['Startpage', 'https://www.startpage.com/do/search?q=%s'],
-    brave: ['Brave Search', 'https://search.brave.com/search?q=%s'],
-    ecosia: ['Ecosia', 'https://www.ecosia.org/search?q=%s'],
-};
+const WEB_SEARCH = 'https://duckduckgo.com/?q=';
 
 const themedIcon = name => size => new St.Icon({icon_name: name, icon_size: size});
 const giconIcon = gicon => size => new St.Icon({gicon, icon_size: size});
@@ -59,42 +52,83 @@ function appItem(app, score, {kind = 'Application', key = 'app'} = {}) {
     };
 }
 
-class Apps {
-    static key = 'launcher-apps';
-    static section = 'Applications';
+// Sources live as long as the launcher is enabled and are shared by every popup:
+//   warm()     load whatever can be loaded ahead of the first search
+//   refresh()  a popup is opening; drop what may have changed since the last one
+//   search()   runs on every keystroke, so it only scores what warm() prepared.
+//              Items are reused between calls, with `score` set by each search.
 
-    constructor(ctx) {
-        this._ctx = ctx;
+// Installed apps, split into Settings panels and everything else.
+class AppSource {
+    static panels = false;
+    static itemOptions = {};
+
+    constructor() {
         this._entries = null;
+        this._appSys = Shell.AppSystem.get_default();
+        this._appSys.connectObject('installed-changed', () => (this._entries = null), this);
+    }
+
+    destroy() {
+        this._appSys.disconnectObject(this);
+    }
+
+    warm() {
+        this._entries ??= this._load();
+    }
+
+    // What an app offers (a new window, say) depends on whether it's running.
+    refresh() {
+        for (const entry of this._entries ?? [])
+            entry.item = null;
     }
 
     _load() {
-        const appSys = Shell.AppSystem.get_default();
-        const usage = Shell.AppUsage.get_default();
-        const ranked = usage.get_most_used().map(a => a.get_id());
-        this._entries = [];
-        for (const info of appSys.get_installed()) {
-            const categories = info.get_categories?.() ?? '';
-            if (!info.should_show() || categories.split(';').includes(SETTINGS_CATEGORY))
+        const {panels} = this.constructor;
+        const entries = [];
+        for (const info of this._appSys.get_installed()) {
+            const panel = (info.get_categories?.() ?? '').split(';').includes(SETTINGS_CATEGORY);
+            if (panel !== panels || (!panels && !info.should_show()))
                 continue;
-            const app = appSys.lookup_app(info.get_id());
-            if (!app)
-                continue;
-            const rank = ranked.indexOf(app.get_id());
-            this._entries.push({app, fields: appFields(info), usage: rank < 0 ? 0 : Math.max(0, 60 - rank * 3)});
+            const app = this._appSys.lookup_app(info.get_id());
+            if (app)
+                entries.push({app, id: app.get_id(), fields: appFields(info), item: null});
         }
+        return entries;
+    }
+
+    _score(s) {
+        return s;
     }
 
     search(query) {
-        if (!this._entries)
-            this._load();
+        this.warm();
         const results = [];
-        for (const {app, fields, usage} of this._entries) {
-            const s = scoreFields(query, fields);
-            if (s !== null)
-                results.push(appItem(app, s + (this._ctx.byUsage ? usage : 0)));
+        for (const entry of this._entries) {
+            const s = scoreFields(query, entry.fields);
+            if (s === null)
+                continue;
+            const item = entry.item ??= appItem(entry.app, 0, this.constructor.itemOptions);
+            item.score = this._score(s, entry);
+            results.push(item);
         }
         return results;
+    }
+}
+
+class Apps extends AppSource {
+    static key = 'launcher-apps';
+    static section = 'Applications';
+
+    refresh() {
+        super.refresh();
+        this._usage = null;
+    }
+
+    _score(s, entry) {
+        this._usage ??= new Map(Shell.AppUsage.get_default().get_most_used()
+            .map((app, rank) => [app.get_id(), Math.max(0, 60 - rank * 3)]));
+        return s + (this._usage.get(entry.id) ?? 0);
     }
 
     empty() {
@@ -104,27 +138,14 @@ class Apps {
     }
 }
 
-class SettingsPanels {
+class SettingsPanels extends AppSource {
     static key = 'launcher-settings-panels';
     static section = 'Settings';
+    static panels = true;
+    static itemOptions = {kind: 'Settings', key: 'settings'};
 
-    constructor() {
-        this._entries = null;
-    }
-
-    search(query) {
-        const appSys = Shell.AppSystem.get_default();
-        this._entries ??= appSys.get_installed()
-            .filter(info => (info.get_categories?.() ?? '').split(';').includes(SETTINGS_CATEGORY))
-            .map(info => ({app: appSys.lookup_app(info.get_id()), fields: appFields(info)}))
-            .filter(e => e.app);
-        const results = [];
-        for (const {app, fields} of this._entries) {
-            const s = scoreFields(query, fields);
-            if (s !== null)
-                results.push(appItem(app, s * 0.9, {kind: 'Settings', key: 'settings'}));
-        }
-        return results;
+    _score(s) {
+        return s * 0.9;
     }
 }
 
@@ -132,29 +153,32 @@ class Windows {
     static key = 'launcher-windows';
     static section = 'Open Windows';
 
-    constructor(ctx) {
-        this._ctx = ctx;
+    refresh() {
+        this._entries = null;
     }
 
-    _windows() {
-        const workspace = this._ctx.windowScope === 'workspace'
-            ? global.workspace_manager.get_active_workspace() : null;
-        return global.display.get_tab_list(Meta.TabList.NORMAL, workspace)
-            .filter(w => !w.skip_taskbar);
+    _load() {
+        const tracker = Shell.WindowTracker.get_default();
+        return global.display.get_tab_list(Meta.TabList.NORMAL, null)
+            .filter(win => !win.skip_taskbar)
+            .map(win => {
+                const app = tracker.get_window_app(win);
+                return {win, app, fields: [[win.get_title(), 1], [app?.get_name(), 0.9]], item: null};
+            });
     }
 
-    _item(win, score) {
-        const app = Shell.WindowTracker.get_default().get_window_app(win);
+    _item(win, app) {
         const ws = win.get_workspace();
         const wsName = ws && global.workspace_manager.n_workspaces > 1
             ? ` · Workspace ${ws.index() + 1}` : '';
         return {
             id: null,
-            title: win.get_title() ?? app?.get_name() ?? 'Window',
+            key: `window:${win.get_id()}`,
+            title: win.get_title() || app?.get_name() || 'Window',
             subtitle: `${app?.get_name() ?? ''}${wsName}${win.minimized ? ' · Minimised' : ''}`,
             kind: 'Window',
             icon: appIcon(app),
-            score,
+            score: 0,
             action: 'Switch to Window',
             altAction: win.can_close() ? 'Close Window' : null,
             activate: alt => {
@@ -167,19 +191,17 @@ class Windows {
     }
 
     search(query) {
-        const tracker = Shell.WindowTracker.get_default();
+        this._entries ??= this._load();
         const results = [];
-        for (const win of this._windows()) {
-            const app = tracker.get_window_app(win);
-            const s = scoreFields(query, [[win.get_title(), 1], [app?.get_name(), 0.9]]);
-            if (s !== null)
-                results.push(this._item(win, s * 0.95));
+        for (const entry of this._entries) {
+            const s = scoreFields(query, entry.fields);
+            if (s === null)
+                continue;
+            const item = entry.item ??= this._item(entry.win, entry.app);
+            item.score = s * 0.95;
+            results.push(item);
         }
         return results;
-    }
-
-    empty() {
-        return this._windows().slice(1).map((w, i) => this._item(w, 500 - i));
     }
 }
 
@@ -209,12 +231,20 @@ class System {
         return items;
     }
 
+    // Which actions are available can change between popups.
+    refresh() {
+        this._items = null;
+    }
+
     search(query) {
+        this._items ??= System.all();
         const results = [];
-        for (const item of System.all()) {
+        for (const item of this._items) {
             const s = scoreFields(query, item.fields);
-            if (s !== null)
-                results.push({...item, score: s * 0.9});
+            if (s === null)
+                continue;
+            item.score = s * 0.9;
+            results.push(item);
         }
         return results;
     }
@@ -228,10 +258,55 @@ function tildify(path) {
 const XBEL = GLib.build_filenamev([GLib.get_user_data_dir(), 'recently-used.xbel']);
 const MAX_FILES = 300;
 
+const XML_ENTITIES = {amp: '&', lt: '<', gt: '>', quot: '"', apos: "'"};
+
 function unescapeXml(s) {
-    return s.replace(/&(amp|lt|gt|quot|apos|#\d+);/g, (_, e) => ({
-        amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
-    })[e] ?? String.fromCodePoint(parseInt(e.slice(1), 10)));
+    return s.replace(/&(amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);/gi, (_, e) =>
+        XML_ENTITIES[e] ?? String.fromCodePoint(e[1] === 'x' || e[1] === 'X'
+            ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)));
+}
+
+// The newest MAX_FILES local files of a recently-used.xbel.
+function parseRecentFiles(text) {
+    const re = /<bookmark href="([^"]+)"[^>]*?modified="([^"]+)"[^>]*>[\s\S]*?<mime:mime-type type="([^"]+)"/g;
+    const seen = new Map();
+    for (const m of text.matchAll(re)) {
+        const uri = unescapeXml(m[1]);
+        if (!uri.startsWith('file://'))
+            continue;
+        seen.set(uri, {uri, modified: Date.parse(m[2]) || 0, mime: m[3]});
+    }
+    const files = [...seen.values()].sort((a, b) => b.modified - a.modified).slice(0, MAX_FILES);
+    for (const f of files) {
+        const file = Gio.File.new_for_uri(f.uri);
+        f.file = file;
+        f.name = file.get_basename();
+        f.dir = tildify(file.get_parent()?.get_path() ?? '');
+        f.fields = [[f.name, 1], [f.dir, 0.5]];
+        f.item = null;
+    }
+    return files;
+}
+
+function fileItem(f) {
+    return {
+        id: `file:${f.uri}`,
+        title: f.name,
+        subtitle: f.dir,
+        kind: 'File',
+        icon: giconIcon(Gio.content_type_get_icon(f.mime)),
+        score: 0,
+        action: f.mime === 'inode/directory' ? 'Open Folder' : 'Open File',
+        altAction: 'Show in Folder',
+        // Blocking I/O, so only asked of results that are about to be shown, and
+        // once per popup.
+        valid: () => (f.exists ??= f.file.query_exists(null)),
+        activate: alt => {
+            const uri = alt ? f.file.get_parent()?.get_uri() : f.uri;
+            if (uri)
+                Gio.AppInfo.launch_default_for_uri_async(uri, global.create_app_launch_context(0, -1), null, null);
+        },
+    };
 }
 
 class RecentFiles {
@@ -240,62 +315,76 @@ class RecentFiles {
 
     constructor() {
         this._files = null;
+        this._xbel = Gio.File.new_for_path(XBEL);
+        try {
+            this._monitor = this._xbel.monitor_file(Gio.FileMonitorFlags.NONE, null);
+            this._monitor.connect('changed', () => this._reload());
+        } catch {
+            this._monitor = null;
+        }
     }
 
-    _load() {
-        this._files = [];
-        let text;
-        try {
-            text = new TextDecoder().decode(GLib.file_get_contents(XBEL)[1]);
-        } catch {
+    destroy() {
+        this._destroyed = true;
+        this._monitor?.cancel();
+        this._monitor = null;
+    }
+
+    warm() {
+        if (!this._files)
+            this._reload();
+    }
+
+    refresh() {
+        for (const f of this._files ?? [])
+            f.exists = undefined;
+        // Without a monitor there's no telling whether the list is still current.
+        if (!this._monitor)
+            this._reload();
+    }
+
+    // Read in the background; searches keep using the old list until it's in.
+    _reload() {
+        if (this._loading) {
+            this._stale = true;
             return;
         }
-        const re = /<bookmark href="([^"]+)"[^>]*?modified="([^"]+)"[^>]*>[\s\S]*?<mime:mime-type type="([^"]+)"/g;
-        const seen = new Map();
-        for (const m of text.matchAll(re)) {
-            const uri = unescapeXml(m[1]);
-            if (!uri.startsWith('file://'))
-                continue;
-            seen.set(uri, {uri, modified: Date.parse(m[2]) || 0, mime: m[3]});
-        }
-        this._files = [...seen.values()].sort((a, b) => b.modified - a.modified).slice(0, MAX_FILES);
-        for (const f of this._files) {
-            const file = Gio.File.new_for_uri(f.uri);
-            f.file = file;
-            f.name = file.get_basename();
-            const parent = file.get_parent()?.get_path() ?? '';
-            f.dir = tildify(parent);
-        }
+        this._loading = true;
+        this._xbel.load_contents_async(null, (file, res) => {
+            this._loading = false;
+            let text = '';
+            try {
+                text = new TextDecoder().decode(file.load_contents_finish(res)[1]);
+            } catch {}
+            if (this._destroyed)
+                return;
+            this._files = parseRecentFiles(text);
+            if (this._stale) {
+                this._stale = false;
+                this._reload();
+            }
+        });
     }
 
-    _item(f, score) {
-        return {
-            id: `file:${f.uri}`,
-            title: f.name,
-            subtitle: f.dir,
-            kind: 'File',
-            icon: giconIcon(Gio.content_type_get_icon(f.mime)),
-            score,
-            action: f.mime === 'inode/directory' ? 'Open Folder' : 'Open File',
-            altAction: 'Show in Folder',
-            activate: alt => {
-                const uri = alt ? f.file.get_parent()?.get_uri() : f.uri;
-                if (uri)
-                    Gio.AppInfo.launch_default_for_uri_async(uri, global.create_app_launch_context(0, -1), null, null);
-            },
-        };
+    _loadNow() {
+        try {
+            return parseRecentFiles(new TextDecoder().decode(GLib.file_get_contents(XBEL)[1]));
+        } catch {
+            return [];
+        }
     }
 
     search(query) {
-        if (!this._files)
-            this._load();
+        // Only when a search beats the background load.
+        this._files ??= this._loadNow();
         const results = [];
         for (const f of this._files) {
-            const s = scoreFields(query, [[f.name, 1], [f.dir, 0.5]]);
-            if (s !== null && f.file.query_exists(null))
-                results.push(this._item(f, s * 0.8));
-            if (results.length >= 30)
-                break;
+            const s = scoreFields(query, f.fields);
+            if (s === null)
+                continue;
+            const item = f.item ??= fileItem(f);
+            item.score = s * 0.8;
+            results.push(item);
         }
         return results;
     }
@@ -311,23 +400,49 @@ class Calculator {
             return [];
         return [{
             id: null,
+            key: 'calculator',
             title: value,
             subtitle: raw.trim(),
             kind: 'Calculator',
             icon: themedIcon('accessories-calculator-symbolic'),
             score: 5000,
             action: 'Copy Result',
-            keepOrder: true,
             activate: () => St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, value),
         }];
     }
 }
 
-export const SOURCES = [Calculator, Apps, Windows, SettingsPanels, System, RecentFiles];
+const SOURCES = [Calculator, Apps, Windows, SettingsPanels, System, RecentFiles];
+
+export class Sources {
+    constructor() {
+        this._sources = SOURCES.map(S => ({key: S.key, section: S.section, impl: new S()}));
+    }
+
+    enabled(settings) {
+        return this._sources.filter(s => settings.get_boolean(s.key));
+    }
+
+    warm(settings) {
+        for (const {impl} of this.enabled(settings))
+            impl.warm?.();
+    }
+
+    refresh() {
+        for (const {impl} of this._sources)
+            impl.refresh?.();
+    }
+
+    destroy() {
+        for (const {impl} of this._sources)
+            impl.destroy?.();
+    }
+}
 
 export function commandItem(command) {
     return {
         id: `command:${command}`,
+        key: 'command',
         title: command || 'Type a command…',
         subtitle: 'Shell command',
         kind: 'Command',
@@ -339,24 +454,19 @@ export function commandItem(command) {
     };
 }
 
-export function webItem(raw, engine, customUrl) {
-    const [name, defaultUrl] = WEB_ENGINES[engine] ?? ['the web', customUrl];
-    const url = (engine === 'custom' ? customUrl : defaultUrl) || WEB_ENGINES.duckduckgo[1];
-    const host = engine === 'custom' ? (GLib.Uri.peek_scheme(url) ? url.split('/')[2] : url) : name;
+export function webItem(raw) {
+    const query = raw.trim();
     return {
         id: null,
-        title: `Search for “${raw.trim()}”`,
-        subtitle: host,
+        key: 'web',
+        title: `Search for “${query}”`,
+        subtitle: 'DuckDuckGo',
         kind: 'Web',
         icon: themedIcon('web-browser-symbolic'),
         score: -1,
         action: 'Search the Web',
-        activate: () => {
-            const target = url.includes('%s')
-                ? url.replace('%s', encodeURIComponent(raw.trim()))
-                : url + encodeURIComponent(raw.trim());
-            Gio.AppInfo.launch_default_for_uri_async(target, global.create_app_launch_context(0, -1), null, null);
-        },
+        activate: () => Gio.AppInfo.launch_default_for_uri_async(WEB_SEARCH + encodeURIComponent(query),
+            global.create_app_launch_context(0, -1), null, null),
     };
 }
 
@@ -380,7 +490,7 @@ export function historyItem(id) {
             mime = file.query_info('standard::content-type', 0, null).get_content_type();
         } catch {}
         const dir = tildify(file.get_parent()?.get_path() ?? '');
-        return new RecentFiles()._item({uri: value, file, name: file.get_basename(), dir, mime}, 0);
+        return fileItem({uri: value, file, name: file.get_basename(), dir, mime});
     }
     case 'command':
         return commandItem(value);

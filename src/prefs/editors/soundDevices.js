@@ -4,7 +4,7 @@ import Gtk from 'gi://Gtk';
 
 import {bindNotInList, onChanged} from '../ui/build.js';
 
-export const deviceKeys = kind => ({
+const deviceKeys = kind => ({
     known: `known-${kind}-devices`,
     names: `${kind}-device-names`,
     hidden: `hidden-${kind}-devices`,

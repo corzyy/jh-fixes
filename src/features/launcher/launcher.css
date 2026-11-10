@@ -1,0 +1,104 @@
+.jh-launcher-backdrop { background-color: rgba(0, 0, 0, 0.25); }
+.jh-launcher {
+  background-color: #18181b;
+  color: #fafafb;
+  border-radius: 20px;
+  border: 1px solid rgba(250, 250, 251, 0.08);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  font-size: 11pt; }
+.jh-launcher-header { padding: 14px 18px; spacing: 12px; }
+.jh-launcher-header-icon { color: rgba(250, 250, 251, 0.55); }
+.jh-launcher-entry, .jh-launcher-entry:focus, .jh-launcher-entry:hover {
+  background: none; border: none; box-shadow: none; padding: 0; margin: 0;
+  color: #fafafb; font-size: 14pt;
+  caret-color: #fafafb; selection-background-color: -st-accent-color; }
+.jh-launcher-entry StLabel.hint-text { color: rgba(250, 250, 251, 0.4); }
+.jh-launcher-mode {
+  background-color: -st-accent-color; color: #ffffff; border-radius: 6px;
+  padding: 2px 8px; font-size: 10pt; font-weight: bold; }
+.jh-launcher-separator { height: 1px; background-color: rgba(250, 250, 251, 0.08); }
+.jh-launcher-list { padding: 6px; spacing: 1px; }
+.jh-launcher-section {
+  color: rgba(250, 250, 251, 0.5); font-size: 10pt; font-weight: bold;
+  padding: 8px 10px 4px 10px; }
+.jh-launcher-row { border-radius: 12px; padding: 7px 10px; color: #fafafb; }
+.jh-launcher-row:hover { background-color: rgba(250, 250, 251, 0.05); }
+.jh-launcher-row.selected, .jh-launcher-row.selected:hover {
+  background-color: st-transparentize(-st-accent-color, 0.75); }
+.jh-launcher-row-box { spacing: 12px; }
+.jh-launcher-title { font-weight: 500; }
+.jh-launcher-subtitle { color: rgba(250, 250, 251, 0.5); font-size: 10pt; }
+.jh-launcher-kind { color: rgba(250, 250, 251, 0.45); font-size: 10pt; }
+.jh-launcher-shortcut-hint {
+  color: rgba(250, 250, 251, 0.45); font-size: 9pt;
+  background-color: rgba(250, 250, 251, 0.06); border-radius: 5px; padding: 1px 6px; }
+.jh-launcher-empty { color: rgba(250, 250, 251, 0.45); padding: 22px; }
+.jh-launcher-footer {
+  padding: 8px 14px; spacing: 10px; font-size: 10pt;
+  background-color: rgba(250, 250, 251, 0.03);
+  border-radius: 0 0 20px 20px; }
+.jh-launcher-footer-status { color: rgba(250, 250, 251, 0.5); }
+.jh-launcher-footer-action { color: rgba(250, 250, 251, 0.85); }
+.jh-launcher-key {
+  color: rgba(250, 250, 251, 0.7); background-color: rgba(250, 250, 251, 0.08);
+  border-radius: 5px; padding: 1px 6px; font-size: 9pt; }
+
+/* Overview search: GNOME's "Search as Overlay" design */
+.jh-launcher-pill {
+  background-color: #272a2e; color: #fafafb;
+  border-radius: 999px; padding: 0 14px; spacing: 8px;
+  box-shadow: inset 0 0 0 2px -st-accent-color; }
+.jh-launcher-pill .jh-launcher-header-icon { color: #fafafb; }
+.jh-launcher-pill .jh-launcher-entry { font-size: 11.5pt; }
+.jh-launcher-pill .jh-launcher-mode { border-radius: 999px; }
+.jh-launcher-overlay {
+  background-color: #222225;
+  border: none; border-radius: 28px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45); }
+.jh-launcher-overlay-content { padding: 24px; spacing: 24px; }
+.jh-launcher-tiles { spacing: 6px; }
+.jh-launcher-tile {
+  width: 110px; padding: 10px 0 8px 0; border-radius: 16px; color: #fafafb; }
+.jh-launcher-tile-box { spacing: 8px; }
+.jh-launcher-tile-label { font-size: 10pt; padding: 0 6px; }
+.jh-launcher-tile:hover { background-color: rgba(250, 250, 251, 0.06); }
+.jh-launcher-tile.selected, .jh-launcher-tile.selected:hover {
+  background-color: st-transparentize(-st-accent-color, 0.7); }
+.jh-launcher-card {
+  border-radius: 14px; padding: 18px 24px; color: #fafafb;
+  background-color: rgba(250, 250, 251, 0.06); }
+.jh-launcher-card:hover { background-color: rgba(250, 250, 251, 0.09); }
+.jh-launcher-card.selected, .jh-launcher-card.selected:hover {
+  background-color: st-transparentize(-st-accent-color, 0.7); }
+.jh-launcher-card-subtitle { color: rgba(250, 250, 251, 0.6); font-size: 11pt; }
+.jh-launcher-card-title { font-size: 21pt; font-weight: 800; padding-top: 2px; }
+.jh-launcher-card-icon { color: rgba(250, 250, 251, 0.8); }
+.jh-launcher-group { spacing: 10px; }
+.jh-launcher-group-header { padding: 0 6px; }
+.jh-launcher-group-title { font-weight: bold; color: #fafafb; }
+.jh-launcher-group-button {
+  color: #fafafb; background-color: rgba(250, 250, 251, 0.08);
+  border-radius: 10px; padding: 6px 14px; font-weight: 500; }
+.jh-launcher-group-button:hover { background-color: rgba(250, 250, 251, 0.13); }
+.jh-launcher-group-button:active { background-color: rgba(250, 250, 251, 0.18); }
+.jh-launcher-boxed-list { border-radius: 14px; background-color: rgba(250, 250, 251, 0.06); }
+.jh-launcher-boxed-row {
+  padding: 10px 14px 10px 16px; color: #fafafb;
+  border-top: 1px solid rgba(250, 250, 251, 0.07); }
+.jh-launcher-boxed-row:first-child { border-top-width: 0; border-radius: 14px 14px 0 0; }
+.jh-launcher-boxed-row:last-child { border-radius: 0 0 14px 14px; }
+.jh-launcher-boxed-row:first-child:last-child { border-radius: 14px; }
+.jh-launcher-boxed-row:hover { background-color: rgba(250, 250, 251, 0.04); }
+.jh-launcher-boxed-row.selected, .jh-launcher-boxed-row.selected:hover {
+  background-color: st-transparentize(-st-accent-color, 0.75); }
+.jh-launcher-boxed-row .jh-launcher-row-box { spacing: 14px; }
+.jh-launcher-thumb { width: 44px; height: 44px; }
+.jh-launcher-thumb.symbolic {
+  border-radius: 10px; background-color: rgba(0, 0, 0, 0.25); color: #fafafb; }
+.jh-launcher-row-action {
+  border-radius: 999px; padding: 8px; color: rgba(250, 250, 251, 0.8); }
+.jh-launcher-row-action:hover { background-color: rgba(250, 250, 251, 0.1); color: #fafafb; }
+.jh-launcher-status { padding: 28px 0; spacing: 6px; }
+.jh-launcher-status-icon { color: rgba(250, 250, 251, 0.4); padding-bottom: 12px; }
+.jh-launcher-status-title { font-size: 17pt; font-weight: 800; }
+.jh-launcher-status-description { color: rgba(250, 250, 251, 0.6); }

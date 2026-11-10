@@ -1,112 +1,10 @@
-import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {SettingTweak} from '../../lib/tweak.js';
 import {PANEL_SOLID_CLASS} from '../appearance/theme/build.js';
-
-function stockBox(role) {
-    const {left, center, right} = Main.sessionMode.panel;
-    if (left.includes(role))
-        return Main.panel._leftBox;
-    if (center.includes(role))
-        return Main.panel._centerBox;
-    if (right.includes(role))
-        return Main.panel._rightBox;
-    return null;
-}
-
-export class ActivitiesButton extends SettingTweak {
-    static KEY = 'panel-activities-button';
-
-    _apply() {
-        Main.sessionMode.connectObject('updated', () => this._hide(), this);
-        this._hide();
-    }
-
-    _revert() {
-        Main.sessionMode.disconnectObject(this);
-        Main.panel.statusArea.activities?.container.set({
-            visible: stockBox('activities') !== null,
-        });
-    }
-
-    _hide() {
-        Main.panel.statusArea.activities?.container.hide();
-    }
-}
-
-export class ClockStyle {
-    static KEY = 'clock-style';
-
-    constructor(settings) {
-        this._settings = settings;
-        this._interface = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
-        this._label = null;
-        this._format = '';
-    }
-
-    enable() {
-        const sync = () => this._sync();
-        this._settings.connectObject(`changed::${ClockStyle.KEY}`, sync, this);
-        this._interface.connectObject(
-            'changed::clock-format', sync,
-            'changed::clock-show-seconds', sync,
-            this);
-        sync();
-    }
-
-    disable() {
-        this._settings.disconnectObject(this);
-        this._interface.disconnectObject(this);
-        this._restore();
-    }
-
-    _sync() {
-        const dateMenu = Main.panel.statusArea.dateMenu;
-        if (this._settings.get_string(ClockStyle.KEY) !== 'time' || !dateMenu?._clockDisplay) {
-            this._restore();
-            return;
-        }
-        const seconds = this._interface.get_boolean('clock-show-seconds') ? '\u2236%S' : '';
-        this._format = this._interface.get_string('clock-format') === '12h'
-            ? `%l\u2236%M${seconds} %p`
-            : `%H\u2236%M${seconds}`;
-        if (!this._label) {
-            const stock = dateMenu._clockDisplay;
-            this._label = new St.Label({style_class: stock.style_class, y_align: stock.y_align});
-            this._label.clutter_text.set({
-                y_align: stock.clutter_text.y_align,
-                ellipsize: stock.clutter_text.ellipsize,
-            });
-            stock.get_parent().insert_child_above(this._label, stock);
-            stock.hide();
-            dateMenu.label_actor = this._label;
-            dateMenu._clock.connectObject('notify::clock', () => this._update(), this);
-        }
-        this._update();
-    }
-
-    _update() {
-        this._label.text = GLib.DateTime.new_now_local().format(this._format).trim();
-    }
-
-    _restore() {
-        if (!this._label)
-            return;
-        const dateMenu = Main.panel.statusArea.dateMenu;
-        dateMenu?._clock?.disconnectObject(this);
-        if (dateMenu?._clockDisplay) {
-            dateMenu._clockDisplay.show();
-            dateMenu.label_actor = dateMenu._clockDisplay;
-        }
-        this._label.destroy();
-        this._label = null;
-    }
-}
 
 const TOUCHING_TYPES = new Set([
     Meta.WindowType.NORMAL,
@@ -128,12 +26,8 @@ export class DynamicPanel {
     }
 
     enable() {
-        const sync = () => this._syncActive();
-        this._settings.connectObject(
-            'changed::shell-theme', sync,
-            'changed::shell-theme-panel', sync,
-            this);
-        sync();
+        this._settings.connectObject('changed::shell-theme-panel', () => this._syncActive(), this);
+        this._syncActive();
     }
 
     disable() {
@@ -142,8 +36,7 @@ export class DynamicPanel {
     }
 
     _syncActive() {
-        const wanted = this._settings.get_boolean('shell-theme') &&
-            this._settings.get_string('shell-theme-panel') === 'dynamic';
+        const wanted = this._settings.get_string('shell-theme-panel') === 'dynamic';
         if (wanted && !this._active)
             this._start();
         else if (!wanted && this._active)

@@ -1,31 +1,27 @@
-import {customGroups, group, link, number, toggle} from '../ui/build.js';
-import {LAYOUT_KEYS, quickSettingsLayout} from '../editors/quickSettingsLayout.js';
-import {deviceGroup, deviceKeys} from '../editors/soundDevices.js';
+import {custom, customGroups, group, link, number, toggle} from '../ui/build.js';
+import {backgroundAppsRow, menuItemsGroup, topRowGroup} from '../editors/quickSettingsItems.js';
+import {deviceGroup} from '../editors/soundDevices.js';
 
-const devicesPage = (kind, title) => ({settings}) => {
-    const {names, hidden} = deviceKeys(kind);
-    return {title, groups: [customGroups(() => deviceGroup(settings, kind), [names, hidden])]};
-};
+const subpage = (title, build) => ({settings}) =>
+    ({title, groups: [customGroups(() => build(settings))]});
 
 export default {
     title: 'Quick Settings',
     icon: 'emblem-system-symbolic',
     groups: [
-        customGroups(quickSettingsLayout, LAYOUT_KEYS),
-        group('Size', [
+        group('Menu', [
+            link('Menu items', subpage('Menu Items', menuItemsGroup)),
+            link('Top row buttons', subpage('Top Row Buttons', topRowGroup)),
             number('quick-settings-columns', 'Columns'),
         ]),
-        group('Extra Controls', [
+        group('Extras', [
             toggle('ddc-brightness', 'Brightness of external monitors'),
             toggle('sound-app-volumes', 'Volume for each app'),
-            toggle('quick-settings-systray', 'System tray', {
-                subtitle: 'AppIndicator and StatusNotifierItem icons in the Background Apps menu',
-            }),
-            toggle('quick-settings-prefs-button', 'Button for these settings'),
+            custom(backgroundAppsRow),
         ]),
-        group('Sound Menus', [
-            link('Output devices', devicesPage('output', 'Output Devices')),
-            link('Input devices', devicesPage('input', 'Input Devices')),
+        group('Sound Devices', [
+            link('Output devices', subpage('Output Devices', s => deviceGroup(s, 'output'))),
+            link('Input devices', subpage('Input Devices', s => deviceGroup(s, 'input'))),
         ]),
     ],
 };

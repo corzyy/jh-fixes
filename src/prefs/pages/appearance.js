@@ -1,45 +1,29 @@
-import {choice, custom, group, slider, toggle} from '../ui/build.js';
-import {PALETTE_KEY, STYLES, STYLE_KEYS, paletteGrid, styleRow, userThemesWarning} from '../editors/theme.js';
+import {choice, custom, group, number, toggle} from '../ui/build.js';
+import {userThemesWarning} from '../editors/theme.js';
 
 export default {
     title: 'Appearance',
     icon: 'preferences-desktop-appearance-symbolic',
     groups: [
-        group('Shell Theme', [
-            toggle('shell-theme', 'Umbra theme'),
+        group('Top Bar', [
             custom(userThemesWarning),
-        ]),
-        group('Colour Theme', [
-            custom(paletteGrid, [PALETTE_KEY]),
-        ], {requires: 'shell-theme'}),
-        group('Corners', [
-            slider('shell-theme-radius', 'Corner radius', {unit: ' px', marks: [0, 20, 40]}),
-        ]),
-        group('Styled Areas',
-            STYLES.map((style, i) => custom(ctx => styleRow(style, ctx), i === 0 ? STYLE_KEYS : [])),
-            {requires: 'shell-theme'}),
-        group('Volume & Brightness Popups', [
-            choice('osd-position', 'Position', [
-                ['top-left', 'Top left'],
-                ['top', 'Top'],
-                ['top-right', 'Top right'],
-                ['left', 'Left'],
-                ['center', 'Centre'],
-                ['right', 'Right'],
-                ['bottom-left', 'Bottom left'],
-                ['bottom', 'Bottom'],
-                ['bottom-right', 'Bottom right'],
+            choice('shell-theme-panel', 'Background', [
+                ['black', 'Black'],
+                ['theme', 'Theme grey'],
+                ['transparent', 'Transparent'],
+                ['dynamic', 'Dynamic'],
             ]),
-            choice('osd-size', 'Size', [50, 75, 100, 125, 150, 200],
-                {format: v => `${v} %`}),
-        ]),
-        group('Motion', [
-            choice('animation-duration', 'Animation duration', [25, 50, 75, 100, 150, 200],
-                {format: v => `${v} %`}),
+            choice('shell-theme-panel-solid', 'Behind windows',
+                [['theme', 'Theme grey'], ['black', 'Black']],
+                {showIf: {key: 'shell-theme-panel', is: 'dynamic'}}),
+            number('shell-theme-panel-shadow', 'Text shadow', {
+                unit: '%', step: 5,
+                showIf: {key: 'shell-theme-panel', in: ['transparent', 'dynamic']},
+            }),
         ]),
         group('Updates', [
-            toggle('update-banner', 'Update banner',
-                {subtitle: 'Check GitHub for a newer version when the preferences open'}),
+            toggle('update-banner', 'Check for updates',
+                {subtitle: 'Looks on GitHub when the preferences open'}),
         ]),
     ],
 };

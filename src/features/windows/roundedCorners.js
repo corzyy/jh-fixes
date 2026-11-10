@@ -7,8 +7,7 @@ import Meta from 'gi://Meta';
 import St from 'gi://St';
 
 const KEY = 'window-corners';
-const RADIUS_KEY = 'shell-theme-radius';
-const windowRadius = settings => Math.round(settings.get_int(RADIUS_KEY) * 15 / 20);
+const RADIUS = 15;
 const EFFECT_NAME = 'jh-fixes-rounded-corners';
 
 const SHADOW_PADDING = 80;
@@ -100,17 +99,10 @@ export class RoundedCorners {
         this._settings = settings;
         this._windows = null;
         this._adwaita = new Map();
-        this._radius = 0;
     }
 
     enable() {
-        this._settings.connectObject(
-            `changed::${KEY}`, () => this._sync(),
-            `changed::${RADIUS_KEY}`, () => {
-                this._radius = windowRadius(this._settings);
-                this._updateAll();
-            },
-            this);
+        this._settings.connectObject(`changed::${KEY}`, () => this._sync(), this);
         this._sync();
     }
 
@@ -130,7 +122,6 @@ export class RoundedCorners {
         if (this._windows)
             return;
         registerTypes();
-        this._radius = windowRadius(this._settings);
         this._windows = new Map();
         global.display.connectObject(
             'window-created', (_d, win) => this._track(win.get_compositor_private()),
@@ -203,11 +194,6 @@ export class RoundedCorners {
         this._windows.delete(actor);
     }
 
-    _updateAll() {
-        for (const actor of this._windows?.keys() ?? [])
-            this._update(actor);
-    }
-
     _target(actor) {
         return actor.meta_window.get_client_type() === Meta.WindowClientType.X11
             ? actor.get_first_child() : actor;
@@ -233,7 +219,7 @@ export class RoundedCorners {
         const frame = win.get_frame_rect();
         const x = frame.x - buffer.x;
         const y = frame.y - buffer.y;
-        const radius = Math.min(this._radius, frame.width / 2, frame.height / 2);
+        const radius = Math.min(RADIUS, frame.width / 2, frame.height / 2);
         entry.effect.setGeometry([x, y, x + frame.width, y + frame.height],
             radius, buffer.width, buffer.height);
 

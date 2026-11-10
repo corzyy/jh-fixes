@@ -10,11 +10,6 @@ export function* actorsOfType(root, type) {
     }
 }
 
-export function setShownInLayout(actor, visible) {
-    actor.height = visible ? -1 : 0;
-    actor.visible = visible;
-}
-
 export function whenReady(getter, onReady, what, {maxTries = 50} = {}) {
     const value = getter();
     if (value) {

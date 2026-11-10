@@ -142,10 +142,6 @@ export class TrayHost extends Signals.EventEmitter {
         this._nameWatch = 0;
     }
 
-    get items() {
-        return [...this._items.values()];
-    }
-
     start() {
         this._nameWatch = Gio.bus_watch_name_on_connection(this._conn, WATCHER_NAME,
             Gio.BusNameWatcherFlags.NONE,

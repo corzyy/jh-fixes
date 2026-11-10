@@ -1,3 +1,4 @@
+import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 
@@ -6,7 +7,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {whenReady} from '../../lib/shell.js';
 import {SettingTweak} from '../../lib/tweak.js';
 import {LauncherPopup} from './popup.js';
-import {LauncherStyle, STYLE_KEYS} from './style.js';
+import {Sources} from './sources.js';
+import {LauncherStyle} from './style.js';
 
 const SHORTCUT_KEY = 'launcher-shortcut';
 const OVERVIEW_KEY = 'launcher-overview-search';
@@ -18,35 +20,75 @@ export class Launcher extends SettingTweak {
 
     _apply() {
         this._popup = null;
-        this._lastQuery = '';
         this._style = new LauncherStyle(this._settings);
-        this._style.load();
-        this._styleSignals = STYLE_KEYS.map(key =>
-            this._settings.connect(`changed::${key}`, () => this._style.load()));
-
-        this._popupSignal = this._settings.connect(`changed::${POPUP_KEY}`,
-            () => this._syncShortcut());
-        this._syncShortcut();
+        // What the launcher searches is indexed once and shared by every popup.
+        this._sources = new Sources();
+        // Result rows already built, reused by later popups (see LauncherPopup._row).
+        this._rowPool = new Map();
+        // A separate owner, so SettingTweak's own disconnectObject(this) leaves the
+        // feature's on/off handler alone and these go away on _revert().
+        this._signals = {};
+        this._settings.connectObject(
+            `changed::${POPUP_KEY}`, () => this._syncShortcut(),
+            `changed::${OVERVIEW_KEY}`, () => this._syncOverviewSearch(),
+            this._signals);
         Main.sessionMode.connectObject('updated', () => {
             if (Main.sessionMode.isLocked)
                 this._popup?.close();
-        }, this);
+        }, this._signals);
 
-        this._overviewSignal = this._settings.connect(`changed::${OVERVIEW_KEY}`,
-            () => this._syncOverviewSearch());
+        // Pooled rows show app names and icons.
+        Shell.AppSystem.get_default().connectObject('installed-changed', () => {
+            if (!this._popup)
+                this._dropRows();
+        }, this._signals);
+        // Showing the Overview usually means a search is about to be typed.
+        Main.overview.connectObject('showing', () => this._warm(), this._signals);
+
+        this._syncShortcut();
         this._syncOverviewSearch();
+
+        this._warmId = GLib.idle_add(GLib.PRIORITY_LOW, () => {
+            this._warmId = 0;
+            this._warm();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    // Does the slow parts of the first open ahead of time: loading the stylesheet
+    // restyles the whole stage and the sources read every installed app.
+    _warm() {
+        try {
+            this._style.load();
+            this._sources.warm(this._settings);
+        } catch (e) {
+            console.error('jh-fixes: launcher failed to warm up', e);
+        }
+    }
+
+    _dropRows() {
+        for (const row of this._rowPool.values())
+            row.actor.destroy();
+        this._rowPool.clear();
     }
 
     _revert() {
-        this._settings.disconnect(this._overviewSignal);
-        this._settings.disconnect(this._popupSignal);
+        if (this._warmId)
+            GLib.source_remove(this._warmId);
+        this._warmId = 0;
+        Main.overview.disconnectObject(this._signals);
+        Shell.AppSystem.get_default().disconnectObject(this._signals);
+        this._settings.disconnectObject(this._signals);
+        Main.sessionMode.disconnectObject(this._signals);
+        this._signals = null;
         this._unhookOverviewSearch();
         this._removeShortcut();
-        Main.sessionMode.disconnectObject(this);
-        this._styleSignals.forEach(id => this._settings.disconnect(id));
-        this._styleSignals = null;
         this._popup?.close();
         this._popup = null;
+        this._dropRows();
+        this._rowPool = null;
+        this._sources.destroy();
+        this._sources = null;
         this._style.unload();
         this._style = null;
     }
@@ -115,8 +157,7 @@ export class Launcher extends SettingTweak {
             this._popup.close();
             return;
         }
-        const remember = this._settings.get_boolean('launcher-remember-query');
-        this._open(remember ? this._lastQuery : '', {select: true});
+        this._open('', {select: true});
     }
 
     _open(initialQuery, {select, fromOverview = false}) {
@@ -124,13 +165,12 @@ export class Launcher extends SettingTweak {
             return;
 
         this._style.load();
-        const popup = new LauncherPopup(this._settings, {
+        const popup = new LauncherPopup(this._settings, this._sources, this._rowPool, {
             initialQuery,
             selectQuery: select,
             closeWhenEmpty: fromOverview,
             overlay: fromOverview,
             onClosed: p => {
-                this._lastQuery = p.activated ? '' : p.query;
                 if (this._popup === p)
                     this._popup = null;
             },

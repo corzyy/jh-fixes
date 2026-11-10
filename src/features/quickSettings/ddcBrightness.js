@@ -53,6 +53,9 @@ export class DdcBrightness extends SettingTweak {
         global.backend.get_monitor_manager().disconnectObject(this);
         this._qs?.menu.disconnectObject(this);
         this._qs = null;
+        // GNOME doesn't destroy an item's menu with it; it would stay in the overlay.
+        this._item?.menu.close(false);
+        this._item?.menu.destroy();
         this._item?.destroy();
         this._item = null;
         this._section = null;

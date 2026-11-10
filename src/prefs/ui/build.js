@@ -1,7 +1,6 @@
 import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
-import GObject from 'gi://GObject';
 import Gtk from 'gi://Gtk';
 
 const row = type => (key, title, extra = {}) => ({type, key, title, ...extra});
@@ -11,15 +10,12 @@ export const toggle = row('toggle');
 export const number = row('number');
 export const slider = row('slider');
 export const shortcut = row('shortcut');
-export const text = row('text');
 export const choice = listRow('choice');
-export const toggles = listRow('toggles');
 
-export const link = (title, page) => ({type: 'link', title, page});
+export const link = (title, page, extra = {}) => ({type: 'link', title, page, ...extra});
 export const custom = (build, keys = []) => ({type: 'custom', build, keys});
 export const customGroups = (build, keys = []) => ({type: 'customGroups', build, keys});
 export const group = (title, rows, extra = {}) => ({type: 'group', title, rows, ...extra});
-export const section = spec => ({type: 'section', ...spec});
 
 export function onChanged(settings, keys, callback, widget) {
     const ids = [keys].flat().map(key => settings.connect(`changed::${key}`, () => callback()));
@@ -28,8 +24,6 @@ export function onChanged(settings, keys, callback, widget) {
 
 const isChanged = (settings, key) =>
     !settings.get_value(key).equal(settings.get_default_value(key));
-
-const defaultOf = (settings, key) => settings.get_default_value(key).deepUnpack();
 
 const typeOf = (settings, key) =>
     settings.settings_schema.get_key(key).get_value_type().dup_string();
@@ -172,11 +166,7 @@ const ROW_BUILDERS = {
         const isInt = typeOf(settings, d.key) === 'i';
         const values = isInt ? d.choices : d.choices.map(([value]) => value);
         const format = d.format ?? (v => `${v}`);
-        const fallback = defaultOf(settings, d.key);
-        const labels = d.choices.map((c, i) => {
-            const label = isInt ? format(c) : c[1];
-            return values[i] === fallback ? `${label} (default)` : label;
-        });
+        const labels = d.choices.map(c => (isInt ? format(c) : c[1]));
 
         const control = new Gtk.DropDown({
             model: Gtk.StringList.new(labels),
@@ -205,15 +195,6 @@ const ROW_BUILDERS = {
         const row = keyRow(d, settings, control);
         row.activatable_widget = control;
         return row;
-    },
-
-    toggles(d, {settings}) {
-        const fallback = defaultOf(settings, d.key);
-        const control = new Adw.ToggleGroup({valign: Gtk.Align.CENTER});
-        for (const [value, label] of d.choices)
-            control.add(new Adw.Toggle({name: value, label, tooltip: value === fallback ? 'Default' : ''}));
-        settings.bind(d.key, control, 'active-name', 0);
-        return keyRow(d, settings, control);
     },
 
     number(d, {settings}) {
@@ -247,13 +228,6 @@ const ROW_BUILDERS = {
         row.tooltip_text = 'Click to change';
         row.connect('activated', () => askForShortcut(row, d.title,
             accel => settings.set_strv(d.key, accel ? [accel] : [])));
-        return row;
-    },
-
-    text(d, {settings}) {
-        const row = new Adw.EntryRow({title: d.title});
-        settings.bind(d.key, row, 'text', 0);
-        addResetButton(row, settings, [d.key]);
         return row;
     },
 
@@ -303,112 +277,23 @@ function askForShortcut(parent, title, done) {
     dialog.present(parent);
 }
 
-function keysOf(d) {
-    switch (d.type) {
-    case 'group':
-        return d.rows.flatMap(keysOf);
-    case 'section':
-        return d.groups.flatMap(keysOf);
-    case 'toggle':
-        return [d.key, ...(d.options ?? []).flatMap(keysOf)];
-    case 'custom':
-    case 'customGroups':
-        return d.keys;
-    case 'link':
-        return [];
-    default:
-        return d.key ? [d.key] : [];
-    }
-}
-
 function buildGroups(d, ctx) {
     if (d.type === 'customGroups')
         return [d.build(ctx)].flat();
-    if (d.type === 'section')
-        return [buildSection(d, ctx)];
-    const g = new Adw.PreferencesGroup({title: d.title ?? '', description: d.description ?? ''});
+    // Group titles and descriptions are Pango markup; escape them so '&' and '<' show as typed.
+    const g = new Adw.PreferencesGroup({
+        title: GLib.markup_escape_text(d.title ?? '', -1),
+        description: GLib.markup_escape_text(d.description ?? '', -1),
+    });
     for (const row of d.rows)
         g.add(buildRow(row, ctx));
     bindRequires(g, ctx.settings, d.requires);
     return [g];
 }
 
-function sectionNote(description) {
-    return new Gtk.ListBoxRow({
-        child: new Gtk.Label({
-            label: description, xalign: 0, wrap: true,
-            css_classes: ['dim-label', 'caption'],
-        }),
-        activatable: false, selectable: false, css_classes: ['jh-note'],
-    });
-}
-
-function buildSection(d, ctx) {
-    const {settings} = ctx;
-    const row = new Adw.ExpanderRow({title: d.title});
-    if (d.icon)
-        row.add_prefix(new Gtk.Image({icon_name: d.icon}));
-
-    for (const g of d.groups) {
-        if (g.type !== 'group')
-            throw new Error(`jh-fixes: ${g.type} can't go in section ${d.title}`);
-        if (g.description) {
-            const note = sectionNote(g.description);
-            bindRequires(note, settings, g.requires);
-            row.add_row(note);
-        }
-        for (const r of g.rows) {
-            const requires = andAlso(r.requires, g.requires);
-            row.add_row(buildRow({...r, options: undefined, requires}, ctx));
-            for (const option of r.options ?? []) {
-                const optionRow = buildRow({
-                    ...option, requires: andAlso(option.requires, requires),
-                    showIf: andAlso(option.showIf, r.key),
-                }, ctx);
-                optionRow.add_css_class('jh-option');
-                row.add_row(optionRow);
-            }
-        }
-    }
-
-    const keys = [...new Set(keysOf(d))];
-    const changed = new Gtk.Label({css_classes: ['dim-label', 'caption'], valign: Gtk.Align.CENTER});
-    const sync = () => {
-        const n = keys.filter(k => isChanged(settings, k)).length;
-        changed.label = `${n} changed`;
-        changed.visible = n > 0 && !row.expanded;
-    };
-    sync();
-    onChanged(settings, keys, sync, changed);
-    row.connect('notify::expanded', sync);
-    row.add_suffix(changed);
-
-    const g = new Adw.PreferencesGroup();
-    g.add(row);
-    return g;
-}
-
-function resetGroup(keys, {settings}) {
-    const g = new Adw.PreferencesGroup();
-    const button = new Adw.ButtonRow({css_classes: ['destructive-action']});
-    const sync = () => {
-        const changed = keys.filter(k => isChanged(settings, k)).length;
-        button.title = `Reset ${changed} Changed Setting${changed === 1 ? '' : 's'} on This Page`;
-        g.visible = changed > 0;
-    };
-    sync();
-    onChanged(settings, keys, sync, button);
-    button.connect('activated', () => keys.forEach(k => settings.reset(k)));
-    g.add(button);
-    return g;
-}
-
 function fillPage(page, spec, ctx) {
     for (const g of spec.groups)
         buildGroups(g, ctx).forEach(w => page.add(w));
-    const keys = [...new Set(spec.groups.flatMap(keysOf))];
-    if (keys.length)
-        page.add(resetGroup(keys, ctx));
 }
 
 export function buildPage(spec, ctx) {
@@ -429,47 +314,7 @@ function buildSubpage(spec, ctx) {
 const CSS = `
 .jh-reset { min-width: 24px; min-height: 24px; padding: 0; opacity: 0.7; }
 .jh-reset:hover { opacity: 1; }
-.jh-note { padding: 10px 12px; background: none; }
-.jh-option { padding-left: 24px; }
 `;
-
-export function clear(widget) {
-    let child;
-    while ((child = widget.get_first_child()))
-        widget.remove(child);
-}
-
-export function addDropTarget(widget, {drop, motion = () => true, leave = () => {}}) {
-    const target = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE);
-    target.connect('motion', (_t, x, y) => {
-        if (motion(x, y) === false)
-            return 0;
-        widget.add_css_class('jh-drop-hover');
-        return Gdk.DragAction.MOVE;
-    });
-    target.connect('leave', () => {
-        widget.remove_css_class('jh-drop-hover');
-        leave();
-    });
-    target.connect('drop', (_t, value) => {
-        widget.remove_css_class('jh-drop-hover');
-        drop(value);
-        return true;
-    });
-    widget.add_controller(target);
-}
-
-export function showPopover(popover, parent, onClosed) {
-    popover.set_parent(parent);
-    popover.connect('closed', () => {
-        onClosed();
-        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-            popover.unparent();
-            return GLib.SOURCE_REMOVE;
-        });
-    });
-    popover.popup();
-}
 
 export function addCss(name, css) {
     const display = Gdk.Display.get_default();

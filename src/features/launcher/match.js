@@ -3,14 +3,40 @@ export function fold(text) {
 }
 
 // Folds per character so indexes still line up with the original text.
-const foldAligned = text => text.split('').map(c => fold(c)[0] ?? c).join('');
+const ASCII = /^[\x00-\x7f]*$/;
+const foldAligned = text => ASCII.test(text)
+    ? text.toLowerCase()
+    : text.split('').map(c => fold(c)[0] ?? c).join('');
 
-const isBoundary = (orig, i) => i === 0 || /[\s\-_./()—–·:]/.test(orig[i - 1]) ||
-    (/\p{Ll}/u.test(orig[i - 1]) && /\p{Lu}/u.test(orig[i]));
+const SEPARATOR = /[\s\-_./()—–·:]/;
+const LOWER = /\p{Ll}/u;
+const UPPER = /\p{Lu}/u;
+
+// Everything matching needs to know about a text, worked out once: the same app
+// names and file names are scored again on every keystroke.
+const PREPARED_MAX = 5000;
+const prepared = new Map();
+
+function prepare(text) {
+    let p = prepared.get(text);
+    if (p)
+        return p;
+    // bounds[i]: a word starts at i
+    const bounds = new Uint8Array(text.length);
+    for (let i = 0; i < text.length; i++) {
+        bounds[i] = i === 0 || SEPARATOR.test(text[i - 1]) ||
+            (LOWER.test(text[i - 1]) && UPPER.test(text[i])) ? 1 : 0;
+    }
+    p = {text: foldAligned(text), bounds};
+    if (prepared.size >= PREPARED_MAX)
+        prepared.clear();
+    prepared.set(text, p);
+    return p;
+}
 
 // Each query letter must either follow the previous match or start a word,
 // so "vsc" finds "Visual Studio Code" but "fire" doesn't find "jh-fixes — LibreWolf".
-function subsequence(query, text, orig) {
+function subsequence(query, text, bounds) {
     let score = 0;
     let at = 0;
     let streak = 0;
@@ -20,7 +46,7 @@ function subsequence(query, text, orig) {
             found = at;
         } else {
             for (let i = text.indexOf(ch, at); i >= 0; i = text.indexOf(ch, i + 1)) {
-                if (isBoundary(orig, i)) {
+                if (bounds[i]) {
                     found = i;
                     break;
                 }
@@ -43,27 +69,35 @@ function subsequence(query, text, orig) {
 export function scoreText(query, text) {
     if (!query || !text)
         return null;
-    const orig = text;
-    const t = foldAligned(orig);
+    const {text: t, bounds} = prepare(text);
     if (t === query)
         return 1000;
-    if (t.startsWith(query))
-        return 900 - Math.min(t.length - query.length, 50);
     const idx = t.indexOf(query);
-    if (idx > 0 && isBoundary(orig, idx))
-        return 800 - Math.min(idx, 50);
+    if (idx === 0)
+        return 900 - Math.min(t.length - query.length, 50);
     if (idx > 0)
-        return 600 - Math.min(idx, 50);
+        return (bounds[idx] ? 800 : 600) - Math.min(idx, 50);
     if (query.length < 2)
         return null;
-    const sub = subsequence(query, t, orig);
+    const sub = subsequence(query, t, bounds);
     return sub === null ? null : 300 + sub;
+}
+
+let splitQuery = null;
+let splitWords = null;
+
+function wordsOf(query) {
+    if (query !== splitQuery) {
+        splitQuery = query;
+        splitWords = query.split(/\s+/).filter(Boolean);
+    }
+    return splitWords;
 }
 
 // fields: [[text, weight], ...]. Every word of the query must match some field.
 export function scoreFields(query, fields) {
     const whole = best(query, fields);
-    const words = query.split(/\s+/).filter(Boolean);
+    const words = wordsOf(query);
     if (words.length < 2)
         return whole;
     let sum = 0;
