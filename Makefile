@@ -2,7 +2,7 @@ UUID := jh-fixes@local
 SRC := src
 DEST := $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
 
-.PHONY: all schemas install uninstall pack clean
+.PHONY: all schemas install uninstall pack clean watch
 
 all: schemas
 
@@ -24,3 +24,6 @@ pack: schemas
 
 clean:
 	rm -rf dist $(SRC)/schemas/gschemas.compiled
+
+watch: install
+	tools/watch.sh

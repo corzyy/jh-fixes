@@ -29,6 +29,10 @@ export default {
         group('Overview', [
             toggle('overview-window-titles', 'Window names'),
             toggle('overview-at-startup', 'Open at login'),
+            toggle('overview-dash', 'Dash', {subtitle: 'Super+A still opens the app grid without it'}),
+            toggle('overview-search', 'Search', {
+                subtitle: 'Off removes the search bar and type-to-search. With the launcher replacing the Overview search, typing still opens the launcher',
+            }),
             choice('app-grid-columns', 'App grid columns',
                 [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], {format: auto}),
             choice('app-grid-rows', 'App grid rows',
@@ -36,6 +40,9 @@ export default {
         ]),
         group('Windows', [
             toggle('window-corners', 'Rounded corners'),
+            toggle('loose-maximized-windows', 'No drag resistance', {
+                subtitle: 'Maximized and tiled windows come loose as soon as you drag them',
+            }),
             toggle('show-desktop', 'Show Desktop', {
                 options: [shortcut('show-desktop-shortcut', 'Shortcut')],
             }),

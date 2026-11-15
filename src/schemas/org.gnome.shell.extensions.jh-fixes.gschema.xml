@@ -83,6 +83,15 @@
       <default>true</default>
       <summary>Show window titles in the Overview</summary>
     </key>
+    <key name="overview-dash" type="b">
+      <default>true</default>
+      <summary>Show the dash in the Overview</summary>
+    </key>
+    <key name="overview-search" type="b">
+      <default>true</default>
+      <summary>Search in the Overview</summary>
+      <description>When off, the search entry is gone and typing does nothing, unless the launcher replaces the Overview search.</description>
+    </key>
     <key name="overview-at-startup" type="b">
       <default>true</default>
       <summary>Open the Overview at login</summary>
@@ -101,6 +110,15 @@
     <key name="window-corners" type="b">
       <default>false</default>
       <summary>Round the corners of windows</summary>
+    </key>
+    <key name="loose-maximized-windows" type="b">
+      <default>false</default>
+      <summary>Drag maximized and tiled windows loose right away</summary>
+      <description>Mutter normally waits until the window has been dragged 6 × drag-threshold pixels.</description>
+    </key>
+    <key name="drag-threshold-backup" type="i">
+      <default>-1</default>
+      <summary>The mouse drag threshold while it is lowered for a window drag, -1 otherwise</summary>
     </key>
     <key name="show-desktop" type="b">
       <default>false</default>
@@ -210,6 +228,26 @@
       <range min="0" max="100"/>
       <default>50</default>
       <summary>Text and icon shadow on a transparent top bar, in percent</summary>
+    </key>
+    <key name="panel-clock-gap" type="i">
+      <range min="0" max="24"/>
+      <default>24</default>
+      <summary>Space between Quick Settings and the clock, in pixels</summary>
+      <description>Only applies while changed from the default, and only when both sit next to each other (dash-to-panel).</description>
+    </key>
+    <key name="panel-clock-right-space" type="b">
+      <default>true</default>
+      <summary>Keep the space to the right of the clock</summary>
+      <description>Only applies when the clock sits next to Quick Settings (dash-to-panel).</description>
+    </key>
+    <key name="osd-style" type="s">
+      <choices>
+        <choice value="gnome"/>
+        <choice value="compact"/>
+      </choices>
+      <default>'gnome'</default>
+      <summary>How on-screen displays for volume, brightness and the like look</summary>
+      <description>"compact" draws a slim Windows 11 style pill with the value as a number.</description>
     </key>
     <key name="update-banner" type="b">
       <default>true</default>

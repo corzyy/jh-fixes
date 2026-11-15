@@ -208,3 +208,8 @@
   color: rgba(255, 255, 255, 0.25); }
 .osd-window {
   border-radius: 20px; }
+
+#panel .panel-button.jh-fixes-flush-right {
+  border-right-width: 0; }
+#panel .panel-button.jh-fixes-flush-left {
+  border-left-width: 0; }

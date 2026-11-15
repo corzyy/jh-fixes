@@ -2,19 +2,25 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import {lazyFeature} from './lib/lazy.js';
 import {DynamicPanel} from './features/topBar/panel.js';
+import {PanelClockGap} from './features/topBar/clockGap.js';
 import {QuickSettingsItems} from './features/quickSettings/items.js';
 import {PrefsButton} from './features/quickSettings/prefsButton.js';
 import {InputDevices, OutputDevices} from './features/quickSettings/soundDevices.js';
 import {AppGridLayout} from './features/overview/appGrid.js';
 import {WindowTitles} from './features/overview/windowTitles.js';
 import {OverviewAtStartup} from './features/overview/startup.js';
+import {HideDash} from './features/overview/hideDash.js';
+import {HideSearch} from './features/overview/hideSearch.js';
 import {ShowDesktop} from './features/windows/showDesktop.js';
+import {LooseMaximized} from './features/windows/looseMaximized.js';
 import {AltTabSwitcher} from './features/altTab/altTab.js';
 import {ShellTheme} from './features/appearance/theme/theme.js';
+import {CompactOsd} from './features/osd/compactOsd.js';
 
 const FEATURES = [
     OverviewAtStartup,
     DynamicPanel,
+    PanelClockGap,
     lazyFeature('ddc-brightness', async () => (await import('./features/quickSettings/ddcBrightness.js')).DdcBrightness),
     QuickSettingsItems,
     lazyFeature('quick-settings-systray', async () => (await import('./features/quickSettings/systemTray.js')).SystemTray),
@@ -23,12 +29,16 @@ const FEATURES = [
     OutputDevices,
     InputDevices,
     WindowTitles,
+    HideDash,
+    HideSearch,
     AppGridLayout,
     lazyFeature('window-corners', async () => (await import('./features/windows/roundedCorners.js')).RoundedCorners),
     ShowDesktop,
+    LooseMaximized,
     AltTabSwitcher,
     lazyFeature('launcher', async () => (await import('./features/launcher/launcher.js')).Launcher),
     ShellTheme,
+    CompactOsd,
 ];
 
 export default class JhFixesExtension extends Extension {

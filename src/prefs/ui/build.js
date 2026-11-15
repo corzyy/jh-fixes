@@ -1,5 +1,6 @@
 import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 
@@ -258,6 +259,17 @@ function askForShortcut(parent, title, done) {
     });
     dialog.add_response('cancel', 'Cancel');
 
+    // Without this, shortcuts the shell already owns (Super+Space switches the
+    // input source, for example) never reach the dialog.
+    const toplevel = parent.get_root()?.get_surface();
+    const inhibit = toplevel instanceof Gdk.Toplevel;
+    if (inhibit)
+        toplevel.inhibit_system_shortcuts(null);
+    dialog.connect('closed', () => {
+        if (inhibit)
+            toplevel.restore_system_shortcuts();
+    });
+
     const keys = new Gtk.EventControllerKey({propagation_phase: Gtk.PropagationPhase.CAPTURE});
     keys.connect('key-pressed', (_c, keyval, _keycode, state) => {
         const mods = state & Gtk.accelerator_get_default_mod_mask() & ~Gdk.ModifierType.LOCK_MASK;
@@ -268,12 +280,76 @@ function askForShortcut(parent, title, done) {
             done(null);
             dialog.close();
         } else if ((mods || BARE_KEYS.has(key)) && Gtk.accelerator_valid(key, mods)) {
-            done(Gtk.accelerator_name(key, mods));
+            const accel = Gtk.accelerator_name(key, mods);
             dialog.close();
+            resolveConflicts(parent, accel, () => done(accel));
         }
         return Gdk.EVENT_STOP;
     });
     dialog.add_controller(keys);
+    dialog.present(parent);
+}
+
+// GNOME keybindings that would grab the same keys before ours.
+const SYSTEM_KEYBINDINGS = [
+    'org.gnome.desktop.wm.keybindings',
+    'org.gnome.shell.keybindings',
+    'org.gnome.mutter.keybindings',
+    'org.gnome.mutter.wayland.keybindings',
+    'org.gnome.settings-daemon.plugins.media-keys',
+];
+
+function sameAccel(a, b) {
+    const [okA, keyA, modsA] = Gtk.accelerator_parse(a);
+    const [okB, keyB, modsB] = Gtk.accelerator_parse(b);
+    return okA && okB && keyA !== 0 &&
+        Gdk.keyval_to_lower(keyA) === Gdk.keyval_to_lower(keyB) && modsA === modsB;
+}
+
+function findConflicts(accel) {
+    const source = Gio.SettingsSchemaSource.get_default();
+    const conflicts = [];
+    for (const id of SYSTEM_KEYBINDINGS) {
+        const schema = source.lookup(id, true);
+        if (!schema)
+            continue;
+        const settings = new Gio.Settings({settings_schema: schema});
+        for (const key of schema.list_keys()) {
+            const schemaKey = schema.get_key(key);
+            if (schemaKey.get_value_type().dup_string() !== 'as')
+                continue;
+            if (settings.get_strv(key).some(a => sameAccel(a, accel)))
+                conflicts.push({settings, key, name: schemaKey.get_summary() || key});
+        }
+    }
+    return conflicts;
+}
+
+function resolveConflicts(parent, accel, done) {
+    const conflicts = findConflicts(accel);
+    if (!conflicts.length) {
+        done();
+        return;
+    }
+    const label = GLib.markup_escape_text(Gtk.accelerator_get_label(...Gtk.accelerator_parse(accel).slice(1)), -1);
+    const names = conflicts.map(c => `• ${GLib.markup_escape_text(c.name, -1)}`).join('\n');
+    const dialog = new Adw.AlertDialog({
+        heading: 'Replace System Shortcut?',
+        body: `<b>${label}</b> is already used by GNOME for:\n${names}\n\n` +
+            'Replacing removes it there so the launcher gets it.',
+        body_use_markup: true,
+    });
+    dialog.add_response('cancel', 'Cancel');
+    dialog.add_response('replace', 'Replace');
+    dialog.set_response_appearance('replace', Adw.ResponseAppearance.DESTRUCTIVE);
+    dialog.default_response = 'replace';
+    dialog.connect('response', (_d, response) => {
+        if (response !== 'replace')
+            return;
+        for (const {settings, key} of conflicts)
+            settings.set_strv(key, settings.get_strv(key).filter(a => !sameAccel(a, accel)));
+        done();
+    });
     dialog.present(parent);
 }
 

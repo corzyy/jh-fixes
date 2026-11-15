@@ -329,7 +329,7 @@ export class LauncherPopup {
 
     _monitor() {
         const lm = Main.layoutManager;
-        return lm.focusMonitor ?? lm.currentMonitor;
+        return lm.primaryMonitor ?? lm.currentMonitor;
     }
 
     _overviewEntryBox() {
@@ -349,7 +349,7 @@ export class LauncherPopup {
 
     _placeOverlay() {
         const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-        const m = Main.layoutManager.primaryMonitor ?? this._monitor();
+        const m = this._monitor();
         if (!m)
             return;
         const box = this._overviewEntryBox();

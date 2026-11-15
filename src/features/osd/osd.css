@@ -1,0 +1,33 @@
+/* Windows 11 style OSD, see compactOsd.js */
+.osd-window.jh-osd-compact {
+  background-color: rgba(32, 32, 32, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  padding: 10px 18px;
+  spacing: 14px;
+  margin-bottom: 3em;
+  font-weight: normal; }
+
+.osd-window.jh-osd-compact StIcon {
+  icon-size: 18px; }
+
+.osd-window.jh-osd-compact StLabel:ltr,
+.osd-window.jh-osd-compact StLabel:rtl {
+  margin-left: 0;
+  margin-right: 0; }
+
+.osd-window.jh-osd-compact .level,
+.osd-window.jh-osd-compact .level:first-child {
+  min-width: 112px;
+  margin: 0;
+  -barlevel-height: 4px;
+  -barlevel-background-color: rgba(255, 255, 255, 0.22);
+  -barlevel-active-background-color: -st-accent-color;
+  -barlevel-overdrive-color: #e01b24;
+  -barlevel-overdrive-separator-width: 2px; }
+
+.osd-window.jh-osd-compact .jh-osd-value {
+  min-width: 1.7em;
+  text-align: right;
+  font-feature-settings: "tnum"; }

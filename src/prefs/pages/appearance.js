@@ -20,6 +20,17 @@ export default {
                 unit: '%', step: 5,
                 showIf: {key: 'shell-theme-panel', in: ['transparent', 'dynamic']},
             }),
+            number('panel-clock-gap', 'Clock gap', {
+                unit: 'px', step: 2,
+                subtitle: 'Space between Quick Settings and the clock when they sit side by side',
+            }),
+            toggle('panel-clock-right-space', 'Space right of the clock'),
+        ]),
+        group('On-Screen Display', [
+            choice('osd-style', 'Style', [
+                ['gnome', 'As GNOME does'],
+                ['compact', 'Compact'],
+            ], {subtitle: 'Compact is a slim pill with the value as a number, like on Windows'}),
         ]),
         group('Updates', [
             toggle('update-banner', 'Check for updates',
